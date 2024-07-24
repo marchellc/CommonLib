@@ -288,11 +288,11 @@ namespace CommonLib.Extensions
 
         public static int NextIndexOfList<T>(this IList<T> list, int curIndex, T value, Func<T, bool> comparer = null)
         {
-            if (curIndex + 1 >= list.Count)
-                return -1;
-
-            for (int i = curIndex + 1; i < list.Count; i++)
+            for (int i = curIndex; i < list.Count; i++)
             {
+                if (curIndex == i)
+                    continue;
+
                 var val = list[i];
 
                 if (comparer != null && comparer(val))
@@ -309,11 +309,11 @@ namespace CommonLib.Extensions
         {
             var count = values.Count();
 
-            if (curIndex + 1 >= count)
-                return -1;
-
             for (int i = curIndex; i < count; i++)
             {
+                if (i == curIndex)
+                    continue;
+
                 var val = values.ElementAtOrDefault(i);
 
                 if (comparer != null && comparer(val))

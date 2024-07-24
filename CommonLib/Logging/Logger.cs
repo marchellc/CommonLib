@@ -1,5 +1,4 @@
-﻿using CommonLib.Utilities;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Linq;
 
 namespace CommonLib.Logging
@@ -31,7 +30,7 @@ namespace CommonLib.Logging
 
         public static string GetCaller(int skipFrames = 0)
         {
-            var method = new StackTrace().GetFrames().Skip(2 + skipFrames).First()?.GetMethod() ?? null;
+            var method = new StackTrace().GetFrames().Skip(2 + skipFrames).FirstOrDefault()?.GetMethod() ?? null;
 
             if (method != null)
                 return $"{method.DeclaringType.Name} / {method.Name}";

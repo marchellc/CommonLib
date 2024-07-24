@@ -39,14 +39,6 @@ namespace CommonLib.Serialization.Buffers
             Buffer.Add(value);
         }
 
-        public void Write(IEnumerable<byte> bytes)
-        {
-            if (!IsWriting)
-                throw new InvalidOperationException($"Cannot write data to an inactive buffer");
-
-            Buffer.AddRange(bytes);
-        }
-
         public void Retrieve()
         {
             if (!IsDisposed)

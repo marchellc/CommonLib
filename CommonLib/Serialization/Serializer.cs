@@ -4,8 +4,10 @@ using CommonLib.Serialization.Pooling;
 using System;
 using System.Net;
 using System.Linq;
+using System.Text;
 using System.Reflection;
 using System.Collections.Generic;
+
 using MessagePack;
 
 namespace CommonLib.Serialization
@@ -52,10 +54,28 @@ namespace CommonLib.Serialization
         }
 
         public void Put(long value)
-            => Buffer.CompressLong(value);
+        {
+            Buffer.Write((byte)value);
+            Buffer.Write((byte)(value >> 8));
+            Buffer.Write((byte)(value >> 16));
+            Buffer.Write((byte)(value >> 24));
+            Buffer.Write((byte)(value >> 32));
+            Buffer.Write((byte)(value >> 40));
+            Buffer.Write((byte)(value >> 48));
+            Buffer.Write((byte)(value >> 56));
+        }
 
         public void Put(ulong value)
-            => Buffer.CompressULong(value);
+        {
+            Buffer.Write((byte)value);
+            Buffer.Write((byte)(value >> 8));
+            Buffer.Write((byte)(value >> 16));
+            Buffer.Write((byte)(value >> 24));
+            Buffer.Write((byte)(value >> 32));
+            Buffer.Write((byte)(value >> 40));
+            Buffer.Write((byte)(value >> 48));
+            Buffer.Write((byte)(value >> 56));
+        }
 
         public unsafe void Put(float value)
         {
@@ -69,36 +89,19 @@ namespace CommonLib.Serialization
             Put(temp);
         }
 
-        public void PutBytes(IEnumerable<byte> bytes)
+        public void PutBytes(byte[] bytes)
         {
-            Put(bytes.LongCount());
-            Buffer.Write(bytes);
+            Put(bytes.Length);
+
+            for (int i = 0; i < bytes.Length; i++)
+                Put(bytes[i]);
         }
 
         public void Put(char value)
             => Buffer.Write((byte)value);
 
         public void Put(string value)
-        {
-            if (value is null)
-            {
-                Buffer.Write((byte)0);
-                return;
-            }
-
-            if (value == "")
-            {
-                Buffer.Write((byte)1);
-                return;
-            }
-
-            Buffer.Write((byte)2);
-
-            Put(value.Length);
-
-            for (int i = 0; i < value.Length; i++)
-                Put(value[i]);
-        }
+            => PutBytes(Encoding.UTF32.GetBytes(value));
 
         public void Put(DateTime value)
             => Put(value.ToBinary());
@@ -110,7 +113,7 @@ namespace CommonLib.Serialization
             => Put(value.Ticks);
 
         public void Put(IPAddress address)
-            => Put(address.GetAddressBytes());
+            => PutBytes(address.GetAddressBytes());
 
         public void Put(IPEndPoint endPoint)
         {
@@ -129,28 +132,16 @@ namespace CommonLib.Serialization
 
         public void Put<T>(T value)
         {
-            if (value is null)
-            {
-                Buffer.Write((byte)0);
-                return;
-            }
-
             if (value is ISerializableObject serializableObject)
             {
-                Buffer.Write((byte)1);
                 serializableObject.Serialize(this);
                 return;
             }
 
             if (Serialization.TryGetSerializer(typeof(T), false, out var serializer))
-            {
-                Buffer.Write((byte)2);
                 serializer(value, this);
-                return;
-            }
-
-            Buffer.Write((byte)3);
-            Put(MessagePackSerializer.Serialize(typeof(T), value, MessagePack.Resolvers.ContractlessStandardResolver.Options));
+            else
+                PutBytes(MessagePackSerializer.Serialize(typeof(T), value, MessagePack.Resolvers.ContractlessStandardResolver.Options));
         }
 
         public void PutEnum<T>(T enumValue) where T : struct, Enum
@@ -189,30 +180,21 @@ namespace CommonLib.Serialization
 
         public void PutObject(object value)
         {
-            if (value is null)
-            {
-                Buffer.Write((byte)0);
-                return;
-            }
-
             var type = value.GetType();
 
             if (value is ISerializableObject serializableObject)
             {
-                Buffer.Write((byte)1);
                 Put(type);
+
                 serializableObject.Serialize(this);
+
                 return;
             }
 
             if (Serialization.TryGetSerializer(type, true, out var serializer))
-            {
-                Buffer.Write((byte)2);
                 serializer(value, this);
-                return;
-            }
-
-            throw new InvalidOperationException($"No serializers were available for object {type.FullName}");
+            else
+                throw new InvalidOperationException($"No serializers were available for object {type.FullName}");
         }
 
         public byte[] Return()

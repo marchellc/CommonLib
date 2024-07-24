@@ -29,22 +29,10 @@ namespace CommonLib.Extensions
             => GetAllConstructors(type).FirstOrDefault(c => c.Parameters().Select(p => p.ParameterType).IsMatch(types));
 
         public static object Construct(this Type type, params object[] parameters)
-        {
-            ConstructorInfo constructor = null;
-
-            if (parameters.Length == 0)
-                constructor = GetEmptyConstructor(type);
-            else
-                constructor = GetAllConstructors(type).FirstOrDefault(c => c.Parameters().Select(p => p.ParameterType).IsMatch(parameters.Select(pr => pr.GetType())));
-
-            if (constructor is null)
-                throw new InvalidOperationException($"There are no constructors available for type '{type.FullName}' with this declaration.");
-
-            return constructor.Invoke(parameters);
-        }
+            => (parameters.Length > 0 ? Activator.CreateInstance(type, true, parameters) : Activator.CreateInstance(type, true));
 
         public static T Construct<T>(this Type type, params object[] parameters)
-            => (T)type.Construct(parameters);
+            => (T)Construct(type, parameters);
 
         public static T TryConstruct<T>(params object[] parameters)
         {

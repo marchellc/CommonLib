@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace CommonLib.Logging.File
 {
@@ -8,7 +9,6 @@ namespace CommonLib.Logging.File
     {
         private static string path;
         private static object gLock;
-        private static Timer timer;
 
         private static List<LogMessage> toAdd;
 
@@ -20,7 +20,15 @@ namespace CommonLib.Logging.File
             path = logPath;
             gLock = new object();
             toAdd = new List<LogMessage>();
-            timer = new Timer(_ => WriteLogs(), null, 10, 500);
+
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    WriteLogs();
+                    await Task.Delay(500);
+                }
+            });
         }
 
         public static void Emit(LogMessage message)
@@ -35,15 +43,7 @@ namespace CommonLib.Logging.File
             {
                 try
                 {
-                    foreach (var msg in toAdd)
-                    {
-                        var str = msg.GetString();
-
-                        if (string.IsNullOrWhiteSpace(str))
-                            continue;
-
-                        System.IO.File.AppendAllLines(path, new string[] { str });
-                    }
+                    System.IO.File.AppendAllLines(path, toAdd.Select(msg => msg.GetString()));
                 }
                 catch { }
 

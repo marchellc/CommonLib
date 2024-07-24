@@ -5,8 +5,10 @@ using CommonLib.Serialization.Pooling;
 
 using System;
 using System.Net;
+using System.Text;
 using System.Reflection;
 using System.Collections.Generic;
+
 using MessagePack;
 
 namespace CommonLib.Serialization
@@ -40,10 +42,10 @@ namespace CommonLib.Serialization
             => Buffer.Take(4).ToUInt();
 
         public long GetInt64()
-            => Compression.DecompressLong(Buffer);
+            => Buffer.Take(8).ToLong();
 
         public ulong GetUInt64()
-            => Compression.DecompressULong(Buffer);
+            => Buffer.Take(8).ToULong();
 
         public float GetFloat()
             => Buffer.Take(8).ToFloating();
@@ -58,24 +60,7 @@ namespace CommonLib.Serialization
             => (char)Buffer.Take(1)[0];
 
         public string GetString()
-        {
-            var stringByte = GetByte();
-
-            if (stringByte == 0)
-                return null;
-
-            if (stringByte == 1)
-                return "";
-
-            var stringSize = GetInt32();
-            var stringBytes = GetBytes(stringSize);
-            var stringArray = new char[stringSize];
-
-            for (int i = 0; i < stringSize; i++)
-                stringArray[i] = (char)stringBytes[i];
-
-            return new string(stringArray);
-        }
+            => Encoding.UTF32.GetString(GetBytes());
 
         public DateTime GetDateTime()
             => DateTime.FromBinary(GetInt64());
@@ -95,8 +80,9 @@ namespace CommonLib.Serialization
         public new Type GetType()
         {
             var name = GetString();
+            var type = Type.GetType(name);
 
-            if (!TypeCache.TryRetrieve(name, out var type))
+            if (type is null)
                 throw new TypeLoadException($"Failed to find a type with a name matching '{name}'");
 
             return type;
@@ -118,60 +104,40 @@ namespace CommonLib.Serialization
 
         public object GetObject()
         {
-            var objectByte = GetByte();
-
-            if (objectByte == 0)
-                return null;
-
             var objectType = GetType();
 
-            if (objectByte == 1)
+            if (objectType.InheritsType<IDeserializableObject>())
             {
                 var objectValue = objectType.Construct<IDeserializableObject>();
                 objectValue.Deserialize(this);
                 return objectValue;
             }
 
-            if (objectByte == 2 && Deserialization.TryGetDeserializer(objectType, out var deserializer))
+            if (Deserialization.TryGetDeserializer(objectType, out var deserializer))
                 return deserializer(this);
 
-            throw new Exception($"No deserializers were assigned for type '{objectType.FullName}' (deserialization code: {objectByte})");
+            return MessagePackSerializer.Deserialize(objectType, GetBytes(), MessagePack.Resolvers.ContractlessStandardResolver.Options);
         }
 
         public T Get<T>()
         {
-            var objectByte = GetByte();
-
-            if (objectByte == 0)
-                return default;
-
-            if (objectByte == 1)
+            if (typeof(T).InheritsType<IDeserializableObject>())
             {
                 var objectValue = typeof(T).Construct<T>();
                 (objectValue as IDeserializableObject).Deserialize(this);
                 return objectValue;
             }
 
-            if (objectByte == 2 && Deserialization.TryGetDeserializer(typeof(T), out var deserializer))
+            if (Deserialization.TryGetDeserializer(typeof(T), out var deserializer))
                 return (T)deserializer(this);
 
-            if (objectByte == 3)
-                return MessagePackSerializer.Deserialize<T>(GetBytes(), MessagePack.Resolvers.ContractlessStandardResolver.Options);
-
-            throw new ArgumentOutOfRangeException(nameof(objectByte));
+            return MessagePackSerializer.Deserialize<T>(GetBytes(), MessagePack.Resolvers.ContractlessStandardResolver.Options);
         }
 
         public T GetDeserializable<T>() where T : IDeserializableObject
         {
-            var objectByte = GetByte();
-
-            if (objectByte == 0)
-                return default;
-
             var objectValue = typeof(T).Construct<T>();
-
             objectValue.Deserialize(this);
-
             return objectValue;
         }
 

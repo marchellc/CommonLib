@@ -4,8 +4,8 @@ namespace CommonLib.Logging
 {
     public struct LogCharacter
     {
-        public char Character;
-        public ConsoleColor Color;
+        public readonly char Character;
+        public readonly ConsoleColor Color;
 
         public LogCharacter(char c, ConsoleColor color = ConsoleColor.White)
         {

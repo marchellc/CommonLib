@@ -1,6 +1,4 @@
-﻿using CommonLib.Pooling.Pools;
-
-using System;
+﻿using System;
 
 namespace CommonLib.Serialization.Buffers
 {
@@ -29,6 +27,7 @@ namespace CommonLib.Serialization.Buffers
                 throw new ArgumentNullException(nameof(data));
 
             _data = data;
+            _index = 0;
         }
 
         public byte[] Take(int count)
@@ -46,10 +45,10 @@ namespace CommonLib.Serialization.Buffers
 
             if (_buffer is null || _buffer.Length != count)
             {
-                if (_buffer != null)
-                    ArrayPool<byte>.Shared.Return(_buffer);
-
-                _buffer = ArrayPool<byte>.Shared.Rent(count);
+                if (_buffer is null)
+                    _buffer = new byte[count];
+                else
+                    Array.Resize(ref _buffer, count);
             }
 
             for (int i = 0; i < count; i++)
@@ -65,10 +64,6 @@ namespace CommonLib.Serialization.Buffers
 
             _data = null;
             _index = 0;
-
-            if (_buffer != null)
-                ArrayPool<byte>.Shared.Return(_buffer);
-
             _buffer = null;
         }
     }
