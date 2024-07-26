@@ -1,5 +1,6 @@
 ﻿using CommonLib.Serialization.Buffers;
 using CommonLib.Serialization.Pooling;
+using CommonLib.Extensions;
 
 using System;
 using System.Net;
@@ -9,6 +10,7 @@ using System.Reflection;
 using System.Collections.Generic;
 
 using MessagePack;
+using Newtonsoft.Json.Linq;
 
 namespace CommonLib.Serialization
 {
@@ -101,7 +103,7 @@ namespace CommonLib.Serialization
             => Buffer.Write((byte)value);
 
         public void Put(string value)
-            => PutBytes(Encoding.UTF32.GetBytes(value));
+            => PutBytes(Encoding.UTF32.GetBytes(value ?? string.Empty));
 
         public void Put(DateTime value)
             => Put(value.ToBinary());
@@ -122,7 +124,26 @@ namespace CommonLib.Serialization
         }
 
         public void Put(Type type)
-            => Put(type.AssemblyQualifiedName);
+        {
+            if (type is null)
+                throw new ArgumentNullException(nameof(type));
+
+            if (Serialization.TypeCodes.TryGetValue(type, out var code))
+            {
+                Put((ushort)0);
+                Put(code);
+            }
+            else
+            {
+                code = type.FullName.GetShortCode();
+
+                Put((ushort)1);
+                Put(code);
+                Put(type.AssemblyQualifiedName);
+
+                Serialization.TypeCodes[type] = code;
+            }
+        }
 
         public void Put(MemberInfo member)
         {
@@ -132,6 +153,11 @@ namespace CommonLib.Serialization
 
         public void Put<T>(T value)
         {
+            WriteNullByte(value);
+
+            if (value is null)
+                return;
+
             if (value is ISerializableObject serializableObject)
             {
                 serializableObject.Serialize(this);
@@ -178,8 +204,23 @@ namespace CommonLib.Serialization
             }
         }
 
+        public void PutSerializable(ISerializableObject serializableObject)
+        {
+            WriteNullByte(serializableObject);
+
+            if (serializableObject is null)
+                return;
+
+            serializableObject.Serialize(this);
+        }
+
         public void PutObject(object value)
         {
+            WriteNullByte(value);
+
+            if (value is null)
+                return;
+
             var type = value.GetType();
 
             if (value is ISerializableObject serializableObject)
@@ -202,6 +243,9 @@ namespace CommonLib.Serialization
             SerializerPool.Shared.Return(this);
             return Buffer.Data;
         }
+
+        private void WriteNullByte(object value)
+            => Put(value is null ? (ushort)0 : (ushort)1);
 
         public static byte[] Serialize(Action<Serializer> action)
         {

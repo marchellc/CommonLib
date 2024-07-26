@@ -31,8 +31,8 @@ namespace CommonLib.Networking.Http.Transport
         public event Action OnStopped;
 
         public event Action<HttpTransportPeer> OnConnected;
-        public event Action<HttpTransportPeer, DisconnectReason> OnDisconnected;
         public event Action<HttpTransportPeer, IHttpMessage> OnMessage;
+        public event Action<HttpTransportPeer, DisconnectReason> OnDisconnected;
 
         public TimeSpan DisconnectDelay { get; set; } = TimeSpan.FromSeconds(1);
 

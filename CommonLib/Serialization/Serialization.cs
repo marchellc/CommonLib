@@ -5,6 +5,7 @@ using MessagePack;
 using System;
 using System.Reflection;
 using System.Collections.Generic;
+using CommonLib.Logging;
 
 namespace CommonLib.Serialization
 {
@@ -20,6 +21,9 @@ namespace CommonLib.Serialization
         private static readonly Action<object, Serializer> _cachedEnum = DefaultEnum;
 
         private static bool _serializersLoaded;
+
+        public static readonly Dictionary<Type, ushort> TypeCodes = new Dictionary<Type, ushort>();
+        public static readonly LogOutput Log = new LogOutput("Serialization").Setup();
 
         public static bool TryGetSerializer(Type type, bool allowDefault, out Action<object, Serializer> serializer)
         {
@@ -100,14 +104,22 @@ namespace CommonLib.Serialization
 
                 var serializedType = parameters[0].ParameterType;
                 var serializerMethod = new Action<object, Serializer>((value, serializer) => method.Call(serializer, value));
+                var code = serializedType.FullName.GetShortCode();
 
                 _cache[serializedType] = serializerMethod;
+
+                TypeCodes[serializedType] = code;
+
+                Log.Debug($"Saved default type code ({code}) for {serializedType.FullName}");
             }
 
             foreach (var type in CommonLibrary.SafeQueryTypes())
             {
                 if (type == typeof(Serializer) || type == typeof(Serialization))
                     continue;
+
+                if (type.InheritsType<ISerializableObject>())
+                    TypeCodes[type] = type.FullName.GetShortCode();
 
                 foreach (var method in type.GetAllMethods())
                 {
@@ -121,8 +133,13 @@ namespace CommonLib.Serialization
 
                     var serializedType = parameters[1].ParameterType;
                     var serializerMethod = new Action<object, Serializer>((value, serializer) => method.Call(null, serializer, value));
+                    var code = serializedType.FullName.GetShortCode();
 
                     _cache[serializedType] = serializerMethod;
+
+                    TypeCodes[serializedType] = code;
+
+                    Log.Debug($"Saved custom type code ({code}) for {serializedType.FullName}");
                 }
             }
 

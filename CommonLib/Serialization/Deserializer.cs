@@ -6,6 +6,7 @@ using CommonLib.Serialization.Pooling;
 using System;
 using System.Net;
 using System.Text;
+using System.Linq;
 using System.Reflection;
 using System.Collections.Generic;
 
@@ -79,13 +80,23 @@ namespace CommonLib.Serialization
 
         public new Type GetType()
         {
-            var name = GetString();
-            var type = Type.GetType(name);
+            var typeId = GetUInt16();
+            var typeCode = GetUInt16();
 
-            if (type is null)
-                throw new TypeLoadException($"Failed to find a type with a name matching '{name}'");
+            if (typeId == 0)
+                return Serialization.TypeCodes.First(p => p.Value == typeCode).Key;
+            else
+            {
+                var typeName = GetString();
+                var type = Type.GetType(typeName);
 
-            return type;
+                if (type is null)
+                    throw new TypeLoadException();
+
+                Serialization.TypeCodes[type] = typeCode;
+
+                return type;
+            }
         }
 
         public MemberInfo GetMember()
@@ -104,6 +115,11 @@ namespace CommonLib.Serialization
 
         public object GetObject()
         {
+            var objectId = GetUInt16();
+
+            if (objectId == 0)
+                return null;
+
             var objectType = GetType();
 
             if (objectType.InheritsType<IDeserializableObject>())
@@ -121,6 +137,11 @@ namespace CommonLib.Serialization
 
         public T Get<T>()
         {
+            var objectId = GetUInt16();
+
+            if (objectId == 0)
+                return default;
+
             if (typeof(T).InheritsType<IDeserializableObject>())
             {
                 var objectValue = typeof(T).Construct<T>();
@@ -136,9 +157,24 @@ namespace CommonLib.Serialization
 
         public T GetDeserializable<T>() where T : IDeserializableObject
         {
+            var objectId = GetUInt16();
+
+            if (objectId == 0)
+                return default;
+
             var objectValue = typeof(T).Construct<T>();
             objectValue.Deserialize(this);
             return objectValue;
+        }
+
+        public T GetAnonymous<T>()
+        {
+            var obj = GetObject();
+
+            if (obj is null)
+                return default;
+
+            return (T)obj;
         }
 
         public T GetEnum<T>() where T : struct, Enum
@@ -149,7 +185,7 @@ namespace CommonLib.Serialization
             if (GetBool())
                 return null;
 
-            return (T)GetObject();
+            return GetAnonymous<T>();
         }
 
         public List<T> GetList<T>()
@@ -158,7 +194,7 @@ namespace CommonLib.Serialization
             var list = new List<T>(size);
 
             for (int i = 0; i < size; i++)
-                list.Add((T)GetObject());
+                list.Add(GetAnonymous<T>());
 
             return list;
         }
@@ -169,9 +205,20 @@ namespace CommonLib.Serialization
             var set = new HashSet<T>(size);
 
             for (int i = 0; i < size; i++)
-                set.Add((T)GetObject());
+                set.Add(GetAnonymous<T>());
 
             return set;
+        }
+
+        public T[] GetArray<T>()
+        {
+            var size = GetInt32();
+            var array = new T[size];
+
+            for (int i = 0; i < size; i++)
+                array[i] = GetAnonymous<T>();
+
+            return array;
         }
 
         public Dictionary<TKey, TValue> GetDictionary<TKey, TValue>()
@@ -180,7 +227,7 @@ namespace CommonLib.Serialization
             var dict = new Dictionary<TKey, TValue>();
 
             for (int i = 0; i < size; i++)
-                dict[(TKey)GetObject()] = (TValue)GetObject();
+                dict[GetAnonymous<TKey>()] = GetAnonymous<TValue>();
 
             return dict;
         }

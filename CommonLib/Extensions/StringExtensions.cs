@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace CommonLib.Extensions
 {
@@ -64,6 +65,16 @@ namespace CommonLib.Extensions
             {
                 return text;
             }
+        }
+
+        public static ushort GetShortCode(this string str)
+        {
+            var num = 23;
+
+            foreach (var c in str)
+                num = num * 31 + (int)c;
+
+            return (ushort)num;
         }
 
         public static string Remove(this string value, IEnumerable<char> toRemove)

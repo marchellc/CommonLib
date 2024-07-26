@@ -85,5 +85,23 @@ namespace CommonLib.Extensions
 
             return (_methods[assembly] = methods).Where(m => m.HasAttribute<T>());
         }
+
+        public static void InvokeStaticMethods(this Assembly assembly, Func<MethodInfo, bool> predicate, params object[] args)
+        {
+            foreach (var type in assembly.GetTypes())
+            {
+                foreach (var method in type.GetAllMethods())
+                {
+                    try
+                    {
+                        if (!predicate(method))
+                            continue;
+
+                        method.Invoke(null, args);
+                    }
+                    catch { }
+                }
+            }
+        }
     }
 }

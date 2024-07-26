@@ -18,8 +18,8 @@ namespace CommonLib.Networking.Http.Transport
 {
     public class HttpTransportClient
     {
-        private readonly HttpClient _client = new HttpClient();
-        private readonly LogOutput _log = new LogOutput("Http Transport Client").Setup();
+        private volatile HttpClient _client;
+        private volatile LogOutput _log = new LogOutput("Http Transport Client").Setup();
 
         private volatile ConcurrentQueue<IHttpMessage> _data = new ConcurrentQueue<IHttpMessage>();
 
@@ -28,13 +28,13 @@ namespace CommonLib.Networking.Http.Transport
         private TimeSpan _delay;
         private TimeSpan _latency;
 
-        private DateTime _lastSuccess;
         private DateTime _lastUpdate;
 
         private volatile string _token;
         private volatile string _url;
 
         private volatile bool _waiting;
+        private volatile bool _connecting;
 
         public string Token => _token;
 
@@ -45,6 +45,8 @@ namespace CommonLib.Networking.Http.Transport
         public string DisconnectUrl => $"{_url}/disconnect";
 
         public bool IsConnected => !string.IsNullOrWhiteSpace(_token) && !string.IsNullOrWhiteSpace(_url);
+        public bool IsConnecting => _connecting;
+
         public bool IsWaiting => _waiting;
 
         public TimeSpan ServerDelay => _delay;
@@ -54,39 +56,60 @@ namespace CommonLib.Networking.Http.Transport
 
         public LogOutput Log => _log;
 
+        public event Action OnDisconnecting;
         public event Action OnDisconnected;
+
         public event Action OnConnected;
+
+        public event Action<string> OnConnecting;
+        public event Action<string> OnConnectionFailed;
 
         public event Action<IHttpMessage> OnMessage;
         public event Action<RejectReason> OnRejected;
 
+        public Func<HttpClient> ClientFactory { get; set; } = () => new HttpClient();
+
         public void Connect(string url)
         {
-            Disconnect();
-
             if (string.IsNullOrWhiteSpace(url))
                 throw new ArgumentNullException(nameof(url));
 
+            if (_connecting)
+                return;
+
             try
             {
+                Stop();
+
                 _url = url;
+                _client = ClientFactory();
+                _data = new ConcurrentQueue<IHttpMessage>();
+                _connecting = true;
+                _client.Timeout = DisconnectDelay;
 
-                InternalSend(null, ConnectUrl, false, msg =>
+                OnConnecting?.Invoke(_url);
+
+                InternalSend<ConnectionMessage>(null, ConnectUrl, false, true, msg =>
                 {
-                    if (msg is null || msg is not ConnectionMessage connectionMessage)
-                        return;
+                    _connecting = false;
+                    _log.Debug($"Callback invoked");
 
-                    if (connectionMessage.IsRejected)
+                    if (msg.IsRejected)
                     {
-                        _log.Error($"Server rejected connection: {connectionMessage.Reason}");
-                        OnRejected?.Invoke(connectionMessage.Reason);
+                        _log.Error($"Server rejected connection: {msg.Reason}");
+
+                        _token = null;
+                        _url = null;
+
+                        OnRejected?.Invoke(msg.Reason);
+                        OnConnectionFailed?.Invoke(msg.Reason.ToString());
                     }
                     else
                     {
-                        _log.Info($"Server accepted connection: {connectionMessage.Token} (delay: {connectionMessage.Delay})");
-                        _token = connectionMessage.Token;
+                        _log.Info($"Server accepted connection: {msg.Token} (delay: {msg.Delay})");
+                        _token = msg.Token;
 
-                        SetDelay(TimeSpan.FromMilliseconds(connectionMessage.Delay.TotalMilliseconds / 2));
+                        SetDelay(TimeSpan.FromMilliseconds(msg.Delay.TotalMilliseconds / 2));
 
                         OnConnected?.Invoke();
                     }
@@ -95,29 +118,52 @@ namespace CommonLib.Networking.Http.Transport
             catch (Exception ex)
             {
                 Log.Error(ex);
+
+                OnConnectionFailed?.Invoke(ex.ToString());
             }
         }
 
-        public void Disconnect(bool sendDisconnect = true)
+        public void Disconnect()
         {
             try
             {
-                if (sendDisconnect && !string.IsNullOrWhiteSpace(_token) && !string.IsNullOrWhiteSpace(_url))
-                    InternalSend(null, DisconnectUrl, true, null);
+                if (!IsConnected)
+                    return;
 
-                OnDisconnected?.Invoke();
+                OnDisconnecting?.Invoke();
 
-                if (_timer != null)
-                {
-                    _timer.Dispose();
-                    _timer = null;
-                }
+                InternalSend<ConnectionMessage>(null, DisconnectUrl, true, false, null);
+
+                _url = null;
+                _token = null;
 
                 _waiting = false;
-                _token = null;
-                _url = null;
+                _connecting = false;
 
-                _data.Clear();
+                OnDisconnected?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex);
+            }
+        }
+
+        public void Stop()
+        {
+            try
+            {
+                Disconnect();
+
+                _timer?.Dispose();
+                _timer = null;
+
+                _client?.Dispose();
+                _client = null;
+
+                _data?.Clear();
+                _data = null;
+
+                _connecting = false;
             }
             catch (Exception ex)
             {
@@ -171,16 +217,13 @@ namespace CommonLib.Networking.Http.Transport
 
                 _lastUpdate = DateTime.Now;
 
-                InternalSend(message, DataUrl, true, msg =>
+                InternalSend<DataMessage>(message, DataUrl, true, true, msg =>
                 {
                     ListPool<IHttpMessage>.Shared.Return(messages);
 
-                    if (msg is null || msg is not DataMessage dataMessage)
-                        return;
+                    Log.Debug($"Received {msg.Messages.Count} messages");
 
-                    Log.Debug($"Received {dataMessage.Messages.Count} messages");
-
-                    foreach (var message in dataMessage.Messages)
+                    foreach (var message in msg.Messages)
                     {
                         Log.Debug($"Invoking message {message.GetType().FullName}");
 
@@ -201,10 +244,10 @@ namespace CommonLib.Networking.Http.Transport
             }
         }
 
-        private void InternalSend(IHttpMessage message, string url, bool token, Action<object> callback)
-            => Task.Run(async () => await InternalSendAsync(message, url, token, callback));
+        private void InternalSend<T>(IHttpMessage message, string url, bool token, bool response, Action<T> callback) where T : IHttpMessage
+            => Task.Run(async () => await InternalSendAsync(message, url, token, response, callback));
 
-        private async Task InternalSendAsync(IHttpMessage message, string url, bool token, Action<IHttpMessage> callback)
+        private async Task InternalSendAsync<T>(IHttpMessage message, string url, bool token, bool recvResponse, Action<T> callback) where T : IHttpMessage
         {
             if (token)
                 url += $"?token={_token}";
@@ -222,25 +265,22 @@ namespace CommonLib.Networking.Http.Transport
                 using (var request = new HttpRequestMessage(HttpMethod.Post, url))
                 {
                     if (message != null)
-                        await request.WriteBytesAsync(Serializer.Serialize(s => s.PutObject(message)));
+                        await request.WriteBytesAsync(Serializer.Serialize(s => s.PutSerializable(message)));
 
                     using (var response = await _client.SendAsync(request))
                     {
                         _waiting = false;
+                        _connecting = false;
+
                         _log.Debug($"Response: {response.StatusCode}");
 
                         if (!response.IsSuccessStatusCode)
                         {
                             _log.Error($"Server returned error ({url}): {response.StatusCode} {response.ReasonPhrase}");
-
-                            if ((DateTime.Now - _lastSuccess) >= DisconnectDelay)
-                                Disconnect(false);
                         }
                         else
                         {
-                            _lastSuccess = DateTime.Now;
-
-                            if (response.Content != null)
+                            if (recvResponse && response.Content != null)
                             {
                                 var bytes = await response.ReadBytesAsync();
 
@@ -248,10 +288,7 @@ namespace CommonLib.Networking.Http.Transport
                                 {
                                     Deserializer.Deserialize(bytes, deserializer =>
                                     {
-                                        var obj = deserializer.GetObject();
-
-                                        if (obj != null && obj is IHttpMessage httpMessage)
-                                            callback?.Invoke(httpMessage);
+                                        callback?.Invoke(deserializer.GetDeserializable<T>());
                                     });
                                 }
                             }
@@ -262,7 +299,11 @@ namespace CommonLib.Networking.Http.Transport
             catch (Exception ex)
             {
                 _log.Error($"Send exception: {ex}");
+
                 _waiting = false;
+                _connecting = false;
+
+                Disconnect();
             }
         }
     }

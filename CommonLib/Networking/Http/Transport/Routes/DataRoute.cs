@@ -34,13 +34,13 @@ namespace CommonLib.Networking.Http.Transport.Routes
                 else
                 {
                     var deserializer = Deserializer.GetDeserializer(request.Content);
-                    var message = (DataMessage)deserializer.GetObject();
+                    var message = deserializer.GetDeserializable<DataMessage>();
                     var queue = peer.InternalRegister(message.Sent, message.Messages);
 
                     var responseMessage = new DataMessage() { Sent = DateTime.Now, Messages = queue.ToList() };
 
                     response.SetCode(HttpStatusCode.OK, "OK");
-                    await response.WriteBytesAsync(Serializer.Serialize(s => s.PutObject(responseMessage)));
+                    await response.WriteBytesAsync(Serializer.Serialize(s => s.PutSerializable(responseMessage)));
                 }
             }
             catch (Exception ex)
