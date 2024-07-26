@@ -1,32 +1,33 @@
-﻿using CommonLib.Networking.Http.Transport.Messages.Interfaces;
+﻿using CommonLib.Networking.Interfaces;
 using CommonLib.Serialization;
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace CommonLib.Networking.Http.Transport.Messages.Data
 {
-    public struct DataMessage : IHttpMessage
+    public struct DataMessage : INetworkMessage
     {
-        public List<IHttpMessage> Messages;
+        public List<INetworkMessage> Messages;
         public DateTime Sent;
 
-        public void Serialize(Serializer serializer)
+        public void Write(BinaryWriter writer)
         {
-            serializer.Put(Sent);
-            serializer.Put(Messages.Count);
+            writer.Write(Sent);
+            writer.Write(Messages.Count);
 
             foreach (var msg in Messages)
-                serializer.PutObject(msg);
+                writer.WriteObject(msg);
         }
 
-        public void Deserialize(Deserializer deserializer)
+        public void Read(BinaryReader reader)
         {
-            Sent = deserializer.GetDateTime();
-            Messages = new List<IHttpMessage>(deserializer.GetInt32());
+            Sent = reader.ReadDate();
+            Messages = new List<INetworkMessage>(reader.ReadInt32());
 
             for (int i = 0; i < Messages.Capacity; i++)
-                Messages.Add((IHttpMessage)deserializer.GetObject());
+                Messages.Add(reader.ReadAnonymous<INetworkMessage>());
         }
     }
 }

@@ -1,6 +1,5 @@
 ﻿using CommonLib.Networking.Http.Transport.Enums;
 using CommonLib.Networking.Http.Transport.Messages.Connection;
-
 using CommonLib.Serialization;
 
 using System;
@@ -26,8 +25,7 @@ namespace CommonLib.Networking.Http.Transport.Routes
                 if (request.RemoteIp.Port != 0 && _server.TryGetPeer(request.RemoteIp, out _))
                 {
                     response.SetCode(HttpStatusCode.Forbidden, $"An active peer has been found.");
-
-                    await response.WriteBytesAsync(Serializer.Serialize(s => s.PutSerializable(new ConnectionMessage(RejectReason.ActiveSession))));
+                    await response.WriteBytesAsync(WriterUtils.Write(writer => writer.WriteSerializable(new ConnectionMessage(RejectReason.ActiveSession))));
 
                     _server._log.Info($"Rejected peer from {request.RemoteIp} (active session)");
                 }
@@ -36,8 +34,7 @@ namespace CommonLib.Networking.Http.Transport.Routes
                     var token = _server.InternalAcceptPeer(request.RemoteIp);
 
                     response.SetCode(HttpStatusCode.OK, "Connection accepted");
-
-                    await response.WriteBytesAsync(Serializer.Serialize(s => s.PutSerializable(new ConnectionMessage(token, _server.DisconnectDelay))));
+                    await response.WriteBytesAsync(WriterUtils.Write(writer => writer.WriteSerializable(new ConnectionMessage(token, _server.DisconnectDelay))));
 
                     _server._log.Info($"Accepted peer from {request.RemoteIp} (token: {token})");
                 }

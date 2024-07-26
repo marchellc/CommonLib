@@ -1,29 +1,33 @@
 ﻿using CommonLib.Extensions;
+using CommonLib.Logging;
 
 using MessagePack;
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 
 namespace CommonLib.Serialization
 {
     public static class Deserialization
     {
-        private static readonly Dictionary<Type, Func<Deserializer, object>> _cache = new Dictionary<Type, Func<Deserializer, object>>();
+        private static volatile Dictionary<Type, Func<BinaryReader, object>> _cache = new Dictionary<Type, Func<BinaryReader, object>>();
 
-        private static readonly MethodInfo _cachedList = typeof(Deserializer).Method("GetList");
-        private static readonly MethodInfo _cachedSet = typeof(Deserializer).Method("GetHashSet");
-        private static readonly MethodInfo _cachedArray = typeof(Deserializer).Method("GetArray");
-        private static readonly MethodInfo _cachedDict = typeof(Deserializer).Method("GetDictionary");
-        private static readonly MethodInfo _cachedNullable = typeof(Deserializer).Method("GetNullable");
+        private static volatile MethodInfo _cachedList = typeof(ReaderUtils).Method("ReadList");
+        private static volatile MethodInfo _cachedSet = typeof(ReaderUtils).Method("ReadHashSet");
+        private static volatile MethodInfo _cachedArray = typeof(ReaderUtils).Method("ReadArray");
+        private static volatile MethodInfo _cachedDict = typeof(ReaderUtils).Method("ReadDictionary");
+        private static volatile MethodInfo _cachedNullable = typeof(ReaderUtils).Method("ReadNullable");
 
-        private static readonly Func<Deserializer, object> _cachedDefault = GetDefault;
-        private static readonly Func<Deserializer, object> _cachedEnum = GetEnum;
+        private static volatile Func<BinaryReader, object> _cachedDefault = ReadDefault;
+        private static volatile Func<BinaryReader, object> _cachedEnum = ReadEnum;
 
-        private static bool _deserializersLoaded;
+        private static volatile bool _deserializersLoaded;
 
-        public static bool TryGetDeserializer(Type type, out Func<Deserializer, object> deserializer)
+        public static readonly LogOutput Log = new LogOutput("Deserialization").Setup();
+
+        public static bool TryGetDeserializer(Type type, out Func<BinaryReader, object> deserializer)
         {
             if (!_deserializersLoaded)
                 LoadDeserializers();
@@ -83,14 +87,27 @@ namespace CommonLib.Serialization
             return true;
         }
 
-        private static void LoadDeserializers()
+        public static void RegisterDeserializer(Type type, Func<BinaryReader, object> deserializer)
+        {
+            if (type is null)
+                throw new ArgumentNullException(nameof(type));
+
+            if (deserializer is null)
+                throw new ArgumentNullException(nameof(deserializer));
+
+            _cache[type] = deserializer;
+        }
+
+        public static void LoadDeserializers()
         {
             _cache.Clear();
             _deserializersLoaded = false;
 
-            foreach (var method in typeof(Deserializer).GetAllMethods())
+            Log.Info("Loading deserializers ..");
+
+            foreach (var method in typeof(ReaderUtils).GetAllMethods())
             {
-                if (!method.Name.StartsWith("Get") || method.IsStatic)
+                if (!method.Name.StartsWith("Read") || !method.IsStatic)
                     continue;
 
                 if (method.IsGenericMethod || method.IsGenericMethodDefinition)
@@ -98,56 +115,59 @@ namespace CommonLib.Serialization
 
                 var methodParams = method.Parameters();
 
-                if (methodParams.Length != 1)
+                if (methodParams.Length != 1 || methodParams[0].ParameterType != typeof(BinaryReader))
                     continue;
 
                 var deserializedType = method.ReturnType;
-                var deserializerMethod = new Func<Deserializer, object>(deserializer => method.Call(deserializer));
+                var deserializerMethod = new Func<BinaryReader, object>(deserializer => method.Call(null, deserializer));
 
                 _cache[deserializedType] = deserializerMethod;
             }
 
-            foreach (var type in CommonLibrary.SafeQueryTypes())
+            foreach (var method in typeof(BinaryReader).GetAllMethods())
             {
-                if (type == typeof(Deserialization) || type == typeof(Deserializer))
+                if (!method.Name.StartsWith("Read") || method.IsStatic)
                     continue;
 
-                foreach (var method in type.GetAllMethods())
-                {
-                    if (method.IsGenericMethod || method.IsGenericMethodDefinition || !method.IsStatic)
-                        continue;
+                if (method.IsGenericMethod || method.IsGenericMethodDefinition)
+                    continue;
 
-                    var methodParams = method.Parameters();
+                var methodParams = method.Parameters();
 
-                    if (methodParams.Length != 1 || methodParams[0].ParameterType != typeof(Deserializer))
-                        continue;
+                if (methodParams.Length > 0)
+                    continue;
 
-                    var deserializedType = method.ReturnType;
-                    var deserializerMethod = new Func<Deserializer, object>(deserializer => method.Call(null, deserializer));
+                var deserializedType = method.ReturnType;
 
-                    _cache[deserializedType] = deserializerMethod;
-                }
+                if (_cache.ContainsKey(deserializedType))
+                    continue;
+
+                var deserializerMethod = new Func<BinaryReader, object>(deserializer => method.Call(deserializer));
+
+                _cache[deserializedType] = deserializerMethod;
             }
+
+            Log.Info($"Loaded {_cache.Count} deserializers.");
 
             _deserializersLoaded = true;
         }
 
-        internal static object GetEnum(Deserializer deserializer)
+        internal static object ReadEnum(BinaryReader reader)
         {
-            var enumType = deserializer.GetType();
+            var enumType = reader.GetType();
             var enumNumericalType = Enum.GetUnderlyingType(enumType);
 
             if (!TryGetDeserializer(enumNumericalType, out var enumDeserializer))
                 throw new InvalidOperationException($"Missing numerical deserializer for enum '{enumType.FullName}' ({enumNumericalType.FullName})");
 
-            var enumValue = enumDeserializer(deserializer);
+            var enumValue = enumDeserializer(reader);
             return Enum.ToObject(enumType, enumValue);
         }
 
-        private static object GetDefault(Deserializer deserializer)
+        private static object ReadDefault(BinaryReader reader)
         {
-            var type = deserializer.GetType();
-            var bytes = deserializer.GetBytes();
+            var type = reader.ReadType();
+            var bytes = reader.ReadBytes();
 
             return MessagePackSerializer.Deserialize(type, bytes, MessagePack.Resolvers.ContractlessStandardResolver.Options);
         }

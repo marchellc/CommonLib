@@ -1,7 +1,9 @@
-﻿namespace CommonLib.Serialization
+﻿using System.IO;
+
+namespace CommonLib.Serialization
 {
     public interface ISerializableObject
     {
-        void Serialize(Serializer serializer);
+        void Write(BinaryWriter writer);
     }
 }

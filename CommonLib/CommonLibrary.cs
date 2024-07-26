@@ -145,7 +145,7 @@ namespace CommonLib
             catch { return cachedAppName = "Default App"; }
         }
 
-        public static Type[] SafeQueryTypes()
+        public static List<Type> SafeQueryTypes()
         {
             var assemblies = ListPool<Assembly>.Shared.Rent();
 
@@ -180,7 +180,7 @@ namespace CommonLib
             }
             catch { }
 
-            var types = ListPool<Type>.Shared.Rent();
+            var types = new List<Type>();
 
             try
             {
@@ -202,8 +202,7 @@ namespace CommonLib
             }
             catch { }
 
-            ListPool<Assembly>.Shared.Return(assemblies);
-            return ListPool<Type>.Shared.ToArrayReturn(types);
+            return types;
         }
     }
 }

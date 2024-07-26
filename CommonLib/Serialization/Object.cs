@@ -1,8 +1,10 @@
-﻿namespace CommonLib.Serialization
+﻿using System.IO;
+
+namespace CommonLib.Serialization
 {
     public class Object : ISerializableObject, IDeserializableObject
     {
-        public virtual void Serialize(Serializer serializer) { }
-        public virtual void Deserialize(Deserializer deserializer) { }
+        public virtual void Write(BinaryWriter writer) { }
+        public virtual void Read(BinaryReader reader) { }
     }
 }

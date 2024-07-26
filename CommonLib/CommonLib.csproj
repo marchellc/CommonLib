@@ -235,25 +235,21 @@
     <Compile Include="Networking\Http\Transport\HttpTransportServer.cs" />
     <Compile Include="Networking\Http\Transport\Messages\ConnectionMessage.cs" />
     <Compile Include="Networking\Http\Transport\Messages\DataMessage.cs" />
-    <Compile Include="Networking\Http\Transport\Messages\Interfaces\IHttpMessage.cs" />
+    <Compile Include="Networking\Interfaces\INetworkMessage.cs" />
     <Compile Include="Networking\Http\Transport\Routes\ConnectRoute.cs" />
     <Compile Include="Networking\Http\Transport\Routes\DataRoute.cs" />
     <Compile Include="Networking\Http\Transport\Routes\DisconnectRoute.cs" />
     <Compile Include="Pooling\Pool.cs" />
     <Compile Include="Pooling\Pools\ArrayPool.cs" />
-    <Compile Include="Serialization\Buffers\DeserializerBuffer.cs" />
-    <Compile Include="Serialization\Buffers\SerializerBuffer.cs" />
     <Compile Include="Serialization\Compression.cs" />
     <Compile Include="Serialization\Deserialization.cs" />
-    <Compile Include="Serialization\Deserializer.cs" />
     <Compile Include="Serialization\IDeserializableObject.cs" />
     <Compile Include="Serialization\ISerializableObject.cs" />
     <Compile Include="Serialization\Object.cs" />
     <Compile Include="Serialization\Objects\FileObject.cs" />
-    <Compile Include="Serialization\Pooling\DeserializerPool.cs" />
-    <Compile Include="Serialization\Pooling\SerializerPool.cs" />
+    <Compile Include="Serialization\ReaderUtils.cs" />
     <Compile Include="Serialization\Serialization.cs" />
-    <Compile Include="Serialization\Serializer.cs" />
+    <Compile Include="Serialization\WriterUtils.cs" />
     <Compile Include="Utilities\Console\ConsoleArgs.cs" />
     <Compile Include="Utilities\Console\ConsoleCommands.cs" />
     <Compile Include="Extensions\ArrayExtensions.cs" />
@@ -307,6 +303,7 @@
     <Compile Include="Utilities\Network\Ping\PingFlags.cs" />
     <Compile Include="Utilities\Network\Ping\PingHit.cs" />
     <Compile Include="Utilities\Network\Ping\PingResult.cs" />
+    <Compile Include="Utilities\Optional.cs" />
     <Compile Include="Utilities\RegexUtils.cs" />
     <Compile Include="Utilities\Statistics.cs" />
   </ItemGroup>

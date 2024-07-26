@@ -1,22 +1,21 @@
-﻿using CommonLib.Serialization.Buffers;
-
-using System;
+﻿using System;
+using System.IO;
 
 namespace CommonLib.Serialization
 {
     public static class Compression
     {
-        public static void CompressLong(this SerializerBuffer buffer, long value)
+        public static void CompressLong(this BinaryWriter writer, long value)
         {
             var ulongValue = (ulong)((value >> 63) ^ (value << 1));
-            CompressULong(buffer, ulongValue);
+            CompressULong(writer, ulongValue);
         }
 
-        public static void CompressULong(this SerializerBuffer buffer, ulong value)
+        public static void CompressULong(this BinaryWriter writer, ulong value)
         {
             if (value <= 240)
             {
-                buffer.Write((byte)value);
+                writer.Write((byte)value);
                 return;
             }
 
@@ -26,8 +25,8 @@ namespace CommonLib.Serialization
                 var b = (byte)((value - 240) & 0xFF);
                 var c = (ushort)(b << 8 | a);
 
-                buffer.Write((byte)c);
-                buffer.Write((byte)(c >> 8));
+                writer.Write((byte)c);
+                writer.Write((byte)(c >> 8));
 
                 return;
             }
@@ -39,9 +38,9 @@ namespace CommonLib.Serialization
                 var c = (byte)((value - 2288) & 0xFF);
                 var d = (ushort)(c << 8 | b);
 
-                buffer.Write(a);
-                buffer.Write((byte)d);
-                buffer.Write((byte)(d >> 8));
+                writer.Write(a);
+                writer.Write((byte)d);
+                writer.Write((byte)(d >> 8));
 
                 return;
             }
@@ -52,10 +51,10 @@ namespace CommonLib.Serialization
                 var b = (uint)(value << 8);
                 var c = b | a;
 
-                buffer.Write((byte)c);
-                buffer.Write((byte)(c >> 8));
-                buffer.Write((byte)(c >> 16));
-                buffer.Write((byte)(c >> 24));
+                writer.Write((byte)c);
+                writer.Write((byte)(c >> 8));
+                writer.Write((byte)(c >> 16));
+                writer.Write((byte)(c >> 24));
 
                 return;
             }
@@ -65,11 +64,11 @@ namespace CommonLib.Serialization
                 var a = (byte)251;
                 var b = (uint)value;
 
-                buffer.Write(a);
-                buffer.Write((byte)b);
-                buffer.Write((byte)(b >> 8));
-                buffer.Write((byte)(b >> 16));
-                buffer.Write((byte)(b >> 24));
+                writer.Write(a);
+                writer.Write((byte)b);
+                writer.Write((byte)(b >> 8));
+                writer.Write((byte)(b >> 16));
+                writer.Write((byte)(b >> 24));
 
                 return;
             }
@@ -81,13 +80,13 @@ namespace CommonLib.Serialization
                 var c = (uint)(value >> 8);
                 var d = (ushort)(b << 8 | a);
 
-                buffer.Write((byte)d);
-                buffer.Write((byte)(d >> 8));
+                writer.Write((byte)d);
+                writer.Write((byte)(d >> 8));
 
-                buffer.Write((byte)c);
-                buffer.Write((byte)(c >> 8));
-                buffer.Write((byte)(c >> 16));
-                buffer.Write((byte)(c >> 24));
+                writer.Write((byte)c);
+                writer.Write((byte)(c >> 8));
+                writer.Write((byte)(c >> 16));
+                writer.Write((byte)(c >> 24));
 
                 return;
             }
@@ -100,15 +99,15 @@ namespace CommonLib.Serialization
                 var d = (uint)(value >> 16);
                 var e = (ushort)(c << 8 | b);
 
-                buffer.Write(a);
+                writer.Write(a);
 
-                buffer.Write((byte)e);
-                buffer.Write((byte)(e >> 8));
+                writer.Write((byte)e);
+                writer.Write((byte)(e >> 8));
 
-                buffer.Write((byte)d);
-                buffer.Write((byte)(d >> 8));
-                buffer.Write((byte)(d >> 16));
-                buffer.Write((byte)(d >> 24));
+                writer.Write((byte)d);
+                writer.Write((byte)(d >> 8));
+                writer.Write((byte)(d >> 16));
+                writer.Write((byte)(d >> 24));
 
                 return;
             }
@@ -119,79 +118,79 @@ namespace CommonLib.Serialization
                 var b = value << 8;
                 var c = b | a;
 
-                buffer.Write((byte)c);
-                buffer.Write((byte)(c >> 8));
-                buffer.Write((byte)(c >> 16));
-                buffer.Write((byte)(c >> 24));
-                buffer.Write((byte)(c >> 32));
-                buffer.Write((byte)(c >> 40));
-                buffer.Write((byte)(c >> 48));
-                buffer.Write((byte)(c >> 56));
+                writer.Write((byte)c);
+                writer.Write((byte)(c >> 8));
+                writer.Write((byte)(c >> 16));
+                writer.Write((byte)(c >> 24));
+                writer.Write((byte)(c >> 32));
+                writer.Write((byte)(c >> 40));
+                writer.Write((byte)(c >> 48));
+                writer.Write((byte)(c >> 56));
 
                 return;
             }
 
-            buffer.Write(byte.MaxValue);
+            writer.Write(byte.MaxValue);
 
-            buffer.Write((byte)value);
-            buffer.Write((byte)(value >> 8));
-            buffer.Write((byte)(value >> 16));
-            buffer.Write((byte)(value >> 24));
-            buffer.Write((byte)(value >> 32));
-            buffer.Write((byte)(value >> 40));
-            buffer.Write((byte)(value >> 48));
-            buffer.Write((byte)(value >> 56));
+            writer.Write((byte)value);
+            writer.Write((byte)(value >> 8));
+            writer.Write((byte)(value >> 16));
+            writer.Write((byte)(value >> 24));
+            writer.Write((byte)(value >> 32));
+            writer.Write((byte)(value >> 40));
+            writer.Write((byte)(value >> 48));
+            writer.Write((byte)(value >> 56));
         }
 
-        public static long DecompressLong(this DeserializerBuffer deserializerBuffer)
+        public static long DecompressLong(this BinaryReader reader)
         {
-            var data = DecompressULong(deserializerBuffer);
+            var data = DecompressULong(reader);
             return ((long)(data >> 1)) ^ -((long)data & 1);
         }
 
-        public static ulong DecompressULong(this DeserializerBuffer deserializerBuffer)
+        public static ulong DecompressULong(this BinaryReader reader)
         {
-            var a0 = deserializerBuffer.Take(1)[0];
+            var a0 = reader.ReadByte();
 
             if (a0 < 241)
                 return a0;
 
-            var a1 = deserializerBuffer.Take(1)[0];
+            var a1 = reader.ReadByte();
 
             if (a0 <= 248)
                 return 240 + ((a0 - (ulong)241) << 8) + a1;
 
-            var a2 = deserializerBuffer.Take(1)[0];
+            var a2 = reader.ReadByte();
 
             if (a0 == 249)
                 return 2288 + ((ulong)a1 << 8) + a2;
 
-            var a3 = deserializerBuffer.Take(1)[0];
+            var a3 = reader.ReadByte();
 
             if (a0 == 250)
                 return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16);
 
-            var a4 = deserializerBuffer.Take(1)[0];
+            var a4 = reader.ReadByte();
 
             if (a0 == 251)
                 return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24);
 
-            var a5 = deserializerBuffer.Take(1)[0];
+            var a5 = reader.ReadByte();
 
             if (a0 == 252)
                 return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24) + (((ulong)a5) << 32);
 
-            var a6 = deserializerBuffer.Take(1)[0];
+            var a6 = reader.ReadByte();
 
             if (a0 == 253)
                 return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24) + (((ulong)a5) << 32) + (((ulong)a6) << 40);
 
-            var a7 = deserializerBuffer.Take(1)[0];
+            var a7 = reader.ReadByte();
 
             if (a0 == 254)
                 return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24) + (((ulong)a5) << 32) + (((ulong)a6) << 40) + (((ulong)a7) << 48);
 
-            var a8 = deserializerBuffer.Take(1)[0];
+            var a8 = reader.ReadByte();
 
             if (a0 == 255)
                 return a1 + (((ulong)a2) << 8) + (((ulong)a3) << 16) + (((ulong)a4) << 24) + (((ulong)a5) << 32) + (((ulong)a6) << 40) + (((ulong)a7) << 48) + (((ulong)a8) << 56);

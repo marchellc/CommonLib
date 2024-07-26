@@ -1,31 +1,32 @@
 ﻿using CommonLib.Extensions;
+using CommonLib.Logging;
 
 using MessagePack;
 
 using System;
+using System.IO;
 using System.Reflection;
 using System.Collections.Generic;
-using CommonLib.Logging;
 
 namespace CommonLib.Serialization
 {
     public static class Serialization
     {
-        private static readonly Dictionary<Type, Action<object, Serializer>> _cache = new Dictionary<Type, Action<object, Serializer>>();
+        private static volatile Dictionary<Type, Action<object, BinaryWriter>> _cache = new Dictionary<Type, Action<object, BinaryWriter>>();
 
-        private static readonly MethodInfo _cachedEnumerable = typeof(Serializer).Method("PutItems");
-        private static readonly MethodInfo _cachedDictionary = typeof(Serializer).Method("PutPairs");
-        private static readonly MethodInfo _cachedNullable = typeof(Serializer).Method("PutNullable");
+        private static volatile MethodInfo _cachedEnumerable = typeof(WriterUtils).Method("WriteItems");
+        private static volatile MethodInfo _cachedDictionary = typeof(WriterUtils).Method("WriteDictionary");
+        private static volatile MethodInfo _cachedNullable = typeof(WriterUtils).Method("WriteNullable");
 
-        private static readonly Action<object, Serializer> _cachedDefault = DefaultSerializer;
-        private static readonly Action<object, Serializer> _cachedEnum = DefaultEnum;
+        private static volatile Action<object, BinaryWriter> _cachedDefault = DefaultWriter;
+        private static volatile Action<object, BinaryWriter> _cachedEnum = DefaultEnum;
 
-        private static bool _serializersLoaded;
+        private static volatile bool _serializersLoaded;
 
-        public static readonly Dictionary<Type, ushort> TypeCodes = new Dictionary<Type, ushort>();
-        public static readonly LogOutput Log = new LogOutput("Serialization").Setup();
+        public static volatile Dictionary<Type, ushort> TypeCodes = new Dictionary<Type, ushort>();
+        public static volatile LogOutput Log = new LogOutput("Serialization").Setup();
 
-        public static bool TryGetSerializer(Type type, bool allowDefault, out Action<object, Serializer> serializer)
+        public static bool TryGetSerializer(Type type, bool allowDefault, out Action<object, BinaryWriter> serializer)
         {
             if (!_serializersLoaded)
                 LoadSerializers();
@@ -84,14 +85,61 @@ namespace CommonLib.Serialization
             return true;
         }
 
-        private static void LoadSerializers()
+        public static void RegisterSerializer(Type type, Action<object, BinaryWriter> serializer)
+        {
+            if (type is null)
+                throw new ArgumentNullException(nameof(type));
+
+            if (serializer is null)
+                throw new ArgumentNullException(nameof(serializer));
+
+            _cache[type] = serializer;
+        }
+
+        public static void RegisterType(Type type)
+        {
+            if (type is null)
+                throw new ArgumentNullException(nameof(type));
+
+            TypeCodes[type] = type.FullName.GetShortCode();
+
+            Log.Info($"Registered type code: {type.FullName} ({type.FullName.GetShortCode()})");
+        }
+
+        public static void RegisterTypes(params Type[] types)
+            => types.ForEach(RegisterType);
+
+        public static void LoadSerializers()
         {
             _cache.Clear();
             _serializersLoaded = false;
 
-            foreach (var method in typeof(Serializer).GetAllMethods())
+            Log.Info("Loading serializers ..");
+
+            foreach (var method in typeof(WriterUtils).GetAllMethods())
             {
-                if (!method.Name.StartsWith("Put"))
+                if (!method.Name.StartsWith("Write"))
+                    continue;
+
+                if (!method.IsStatic || method.IsGenericMethod || method.IsGenericMethodDefinition)
+                    continue;
+
+                var parameters = method.Parameters();
+
+                if (parameters.Length != 2 || parameters[0].ParameterType != typeof(BinaryWriter))
+                    continue;
+
+                var serializedType = parameters[1].ParameterType;
+                var serializerMethod = new Action<object, BinaryWriter>((value, writer) => method.Call(null, writer, value));
+
+                _cache[serializedType] = serializerMethod;
+
+                RegisterType(serializedType);
+            }
+
+            foreach (var method in typeof(BinaryWriter).GetAllMethods())
+            {
+                if (method.Name != "Write")
                     continue;
 
                 if (method.IsStatic || method.IsGenericMethod || method.IsGenericMethodDefinition)
@@ -103,50 +151,23 @@ namespace CommonLib.Serialization
                     continue;
 
                 var serializedType = parameters[0].ParameterType;
-                var serializerMethod = new Action<object, Serializer>((value, serializer) => method.Call(serializer, value));
-                var code = serializedType.FullName.GetShortCode();
+
+                if (_cache.ContainsKey(serializedType))
+                    continue;
+
+                var serializerMethod = new Action<object, BinaryWriter>((value, writer) => method.Call(writer, value));
 
                 _cache[serializedType] = serializerMethod;
 
-                TypeCodes[serializedType] = code;
-
-                Log.Debug($"Saved default type code ({code}) for {serializedType.FullName}");
+                RegisterType(serializedType);
             }
 
-            foreach (var type in CommonLibrary.SafeQueryTypes())
-            {
-                if (type == typeof(Serializer) || type == typeof(Serialization))
-                    continue;
-
-                if (type.InheritsType<ISerializableObject>())
-                    TypeCodes[type] = type.FullName.GetShortCode();
-
-                foreach (var method in type.GetAllMethods())
-                {
-                    if (!method.IsStatic || method.IsGenericMethod || method.IsGenericMethodDefinition)
-                        continue;
-
-                    var parameters = method.Parameters();
-
-                    if (parameters.Length != 2 || parameters[0].ParameterType != typeof(Serializer))
-                        continue;
-
-                    var serializedType = parameters[1].ParameterType;
-                    var serializerMethod = new Action<object, Serializer>((value, serializer) => method.Call(null, serializer, value));
-                    var code = serializedType.FullName.GetShortCode();
-
-                    _cache[serializedType] = serializerMethod;
-
-                    TypeCodes[serializedType] = code;
-
-                    Log.Debug($"Saved custom type code ({code}) for {serializedType.FullName}");
-                }
-            }
+            Log.Info($"Loaded {_cache.Count} serializers.");
 
             _serializersLoaded = true;
         }
 
-        internal static void DefaultEnum(object value, Serializer serializer)
+        internal static void DefaultEnum(object value, BinaryWriter writer)
         {
             var enumType = value.GetType();
             var underlyingType = Enum.GetUnderlyingType(enumType);
@@ -155,17 +176,17 @@ namespace CommonLib.Serialization
             if (!TryGetSerializer(underlyingType, true, out var enumSerializer))
                 throw new InvalidOperationException($"No writers are present for enum type {underlyingType.FullName}");
 
-            serializer.Put(enumType);
-            enumSerializer(value, serializer);
+            writer.Write(enumType);
+            enumSerializer(value, writer);
         }
 
-        private static void DefaultSerializer(object value, Serializer serializer)
+        private static void DefaultWriter(object value, BinaryWriter writer)
         {
             var type = value.GetType();
             var bytes = MessagePackSerializer.Serialize(type, value, MessagePack.Resolvers.ContractlessStandardResolver.Options);
 
-            serializer.Put(type);
-            serializer.Put(bytes);
+            writer.Write(type);
+            writer.WriteBytes(bytes);
         }
     }
 }

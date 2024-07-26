@@ -19,6 +19,8 @@ namespace CommonLib.Networking.Http
 
         public IEnumerable<HttpRoute> Routes => _routes;
 
+        public event Action<Exception> OnError;
+
         public void Start(IEnumerable<string> prefixes)
         {
             try
@@ -42,6 +44,8 @@ namespace CommonLib.Networking.Http
             catch (Exception ex)
             {
                 _log.Error(ex);
+
+                OnError?.Invoke(ex);
             }
         }
 
@@ -114,6 +118,7 @@ namespace CommonLib.Networking.Http
             catch (Exception ex)
             {
                 _log.Error(ex);
+                OnError?.Invoke(ex);
             }
         }
 
@@ -121,8 +126,6 @@ namespace CommonLib.Networking.Http
         {
             if (ctx is null)
                 return;
-
-            _log.Debug($"Received request: {ctx.Request.RawUrl}");
 
             Task.Run(async () =>
             {
@@ -144,9 +147,10 @@ namespace CommonLib.Networking.Http
                         if (route.RequiredParameters != null && route.RequiredParameters.Any(name => !parameters.ContainsKey(name)))
                             continue;
 
-                        _log.Debug($"Found route: {route.Url} ({url})");
+                        var bytes = default(byte[]);
 
-                        var bytes = await ctx.Request.ReadBytesAsync();
+                        if (route.ReadContent)
+                            bytes = await ctx.Request.ReadBytesAsync();
 
                         ctx.Response.KeepAlive = true;
 
@@ -169,6 +173,8 @@ namespace CommonLib.Networking.Http
                     {
                         _log.Error($"An error occured while invoking HTTP route ({ctx.Request.RawUrl}):\n{ex}");
 
+                        OnError?.Invoke(ex);
+
                         ctx.Response.SetCode(HttpStatusCode.InternalServerError, $"An error occured while processing your request");
 
                         await ctx.Response.WriteStringAsync("An error occured while processing your request");
@@ -176,8 +182,6 @@ namespace CommonLib.Networking.Http
                         return;
                     }
                 }
-
-                _log.Debug($"No routes were found");
 
                 ctx.Response.SetCode(HttpStatusCode.NotImplemented, "The specified route has not been found.");
 

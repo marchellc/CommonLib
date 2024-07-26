@@ -1,4 +1,4 @@
-﻿using CommonLib.Networking.Http.Transport.Messages.Interfaces;
+﻿using CommonLib.Networking.Interfaces;
 using CommonLib.Networking.Http.Transport.Enums;
 using CommonLib.Pooling.Pools;
 
@@ -18,7 +18,7 @@ namespace CommonLib.Networking.Http.Transport
         private TimeSpan _latency;
 
         private volatile bool _updated = false;
-        private volatile ConcurrentQueue<IHttpMessage> _data;
+        private volatile ConcurrentQueue<INetworkMessage> _data;
 
         public IPEndPoint RemoteIp { get; }
 
@@ -37,18 +37,16 @@ namespace CommonLib.Networking.Http.Transport
             _tickTime = DateTime.Now;
             _connTime = DateTime.Now;
 
-            _data = new ConcurrentQueue<IHttpMessage>();
+            _data = new ConcurrentQueue<INetworkMessage>();
         }
 
         public virtual void OnConnected() { }
         public virtual void OnDisconnected(DisconnectReason reason) { }
 
-        public void Send(IHttpMessage message)
+        public void Send(INetworkMessage message)
         {
             if (message is null)
                 throw new ArgumentNullException(nameof(message));
-
-            Server.Log.Debug($"Queued message: {message.GetType().FullName}");
 
             _data.Enqueue(message);
         }
@@ -56,7 +54,7 @@ namespace CommonLib.Networking.Http.Transport
         public void Disconnect(DisconnectReason reason = DisconnectReason.Forced)
             => Server.InternalDisconnect(Token, reason);
 
-        internal IHttpMessage[] InternalRegister(DateTime sentAt, IEnumerable<IHttpMessage> messages)
+        internal INetworkMessage[] InternalRegister(DateTime sentAt, IEnumerable<INetworkMessage> messages)
         {
             try
             {
@@ -67,32 +65,23 @@ namespace CommonLib.Networking.Http.Transport
                 Server.Log.Debug($"Received update, {_latency.TotalMilliseconds} ms ({messages.Count()} messages)");
 
                 foreach (var message in messages)
-                {
-                    Server.Log.Debug($"Processing message: {message.GetType().FullName}");
                     Server.InternalMessage(this, message);
-                }
 
                 if (_data.IsEmpty)
-                {
-                    Server.Log.Debug("Sending no messages");
-                    return Array.Empty<IHttpMessage>();
-                }
+                    return Array.Empty<INetworkMessage>();
 
-                var list = ListPool<IHttpMessage>.Shared.Rent();
+                var list = ListPool<INetworkMessage>.Shared.Rent();
 
                 while (_data.TryDequeue(out var data))
-                {
                     list.Add(data);
-                    Server.Log.Debug($"Dequeued message: {data.GetType().FullName}");
-                }
 
                 Server.Log.Debug($"Sending {list.Count} messages");
-                return ListPool<IHttpMessage>.Shared.ToArrayReturn(list);
+                return ListPool<INetworkMessage>.Shared.ToArrayReturn(list);
             }
             catch (Exception ex)
             {
                 Server.Log.Error($"Tick register error: {ex}");
-                return Array.Empty<IHttpMessage>();
+                return Array.Empty<INetworkMessage>();
             }
         }
 

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.IO;
 using System.Net;
 using System.Text;
 
@@ -30,6 +31,8 @@ namespace CommonLib.Networking.Http
 
         public readonly Dictionary<string, string> Parameters;
 
+        public readonly Stream Stream;
+
         public readonly byte[] Content;
 
         public HttpRequest(HttpListenerRequest req, Dictionary<string, string> parameters, byte[] rawContent)
@@ -59,6 +62,7 @@ namespace CommonLib.Networking.Http
             else
                 RemoteIp = req.RemoteEndPoint;
 
+            Stream = req.InputStream;
             Parameters = parameters;
             Content = rawContent;
         }

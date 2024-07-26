@@ -1,13 +1,12 @@
 ﻿using CommonLib.Networking.Http.Transport.Enums;
-using CommonLib.Networking.Http.Transport.Messages.Interfaces;
-
+using CommonLib.Networking.Interfaces;
 using CommonLib.Serialization;
-
 using System;
+using System.IO;
 
 namespace CommonLib.Networking.Http.Transport.Messages.Connection
 {
-    public struct ConnectionMessage : IHttpMessage
+    public struct ConnectionMessage : INetworkMessage
     {
         public string Token;
         public bool IsRejected;
@@ -28,29 +27,29 @@ namespace CommonLib.Networking.Http.Transport.Messages.Connection
             Token = token;
         }
 
-        public void Serialize(Serializer serializer)
+        public void Write(BinaryWriter writer)
         {
-            serializer.Put(IsRejected);
+            writer.Write(IsRejected);
 
             if (IsRejected)
-                serializer.Put((byte)Reason);
+                writer.Write((byte)Reason);
             else
             {
-                serializer.Put(Token);
-                serializer.Put(Delay);
+                writer.Write(Token);
+                writer.Write(Delay);
             }
         }
 
-        public void Deserialize(Deserializer deserializer)
+        public void Read(BinaryReader reader)
         {
-            IsRejected = deserializer.GetBool();
+            IsRejected = reader.ReadBoolean();
 
             if (IsRejected)
-                Reason = (RejectReason)deserializer.GetByte();
+                Reason = (RejectReason)reader.ReadByte();
             else
             {
-                Token = deserializer.GetString();
-                Delay = deserializer.GetTimeSpan();
+                Token = reader.ReadString();
+                Delay = reader.ReadSpan();
             }
         }
     }

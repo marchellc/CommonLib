@@ -124,23 +124,23 @@ namespace CommonLib.Caching
             if (data.Length < 4)
                 return;
 
-            Deserializer.Deserialize(data, deserializer =>
+            ReaderUtils.Read(data, reader =>
             {
-                var size = deserializer.GetInt32();
+                var size = reader.ReadInt32();
 
                 for (int i = 0; i < size; i++)
-                    cache.Add(deserializer.Get<T>());
+                    cache.Add(reader.ReadAnonymous<T>());
             });
         }
 
         public void Write(string filePath)
         {
-            var data = Serializer.Serialize(serializer =>
+            var data = WriterUtils.Write(writer =>
             {
-                serializer.Put(cache.Count);
+                writer.Write(cache.Count);
 
                 for (int i = 0; i < cache.Count; i++)
-                    serializer.Put(cache.ElementAt(i));
+                    writer.WriteObject(cache.ElementAt(i));
             });
 
             File.WriteAllBytes(filePath, data);

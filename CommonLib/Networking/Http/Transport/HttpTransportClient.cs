@@ -4,7 +4,7 @@ using CommonLib.Logging;
 using CommonLib.Networking.Http.Transport.Enums;
 using CommonLib.Networking.Http.Transport.Messages.Connection;
 using CommonLib.Networking.Http.Transport.Messages.Data;
-using CommonLib.Networking.Http.Transport.Messages.Interfaces;
+using CommonLib.Networking.Interfaces;
 using CommonLib.Pooling.Pools;
 using CommonLib.Serialization;
 
@@ -21,7 +21,7 @@ namespace CommonLib.Networking.Http.Transport
         private volatile HttpClient _client;
         private volatile LogOutput _log = new LogOutput("Http Transport Client").Setup();
 
-        private volatile ConcurrentQueue<IHttpMessage> _data = new ConcurrentQueue<IHttpMessage>();
+        private volatile ConcurrentQueue<INetworkMessage> _data = new ConcurrentQueue<INetworkMessage>();
 
         private volatile Timer _timer;
 
@@ -59,12 +59,14 @@ namespace CommonLib.Networking.Http.Transport
         public event Action OnDisconnecting;
         public event Action OnDisconnected;
 
+        public event Action<Exception> OnError;
+
         public event Action OnConnected;
 
         public event Action<string> OnConnecting;
         public event Action<string> OnConnectionFailed;
 
-        public event Action<IHttpMessage> OnMessage;
+        public event Action<INetworkMessage> OnMessage;
         public event Action<RejectReason> OnRejected;
 
         public Func<HttpClient> ClientFactory { get; set; } = () => new HttpClient();
@@ -83,7 +85,7 @@ namespace CommonLib.Networking.Http.Transport
 
                 _url = url;
                 _client = ClientFactory();
-                _data = new ConcurrentQueue<IHttpMessage>();
+                _data = new ConcurrentQueue<INetworkMessage>();
                 _connecting = true;
                 _client.Timeout = DisconnectDelay;
 
@@ -92,7 +94,6 @@ namespace CommonLib.Networking.Http.Transport
                 InternalSend<ConnectionMessage>(null, ConnectUrl, false, true, msg =>
                 {
                     _connecting = false;
-                    _log.Debug($"Callback invoked");
 
                     if (msg.IsRejected)
                     {
@@ -119,6 +120,7 @@ namespace CommonLib.Networking.Http.Transport
             {
                 Log.Error(ex);
 
+                OnError?.Invoke(ex);
                 OnConnectionFailed?.Invoke(ex.ToString());
             }
         }
@@ -145,6 +147,7 @@ namespace CommonLib.Networking.Http.Transport
             catch (Exception ex)
             {
                 Log.Error(ex);
+                OnError?.Invoke(ex);
             }
         }
 
@@ -168,6 +171,7 @@ namespace CommonLib.Networking.Http.Transport
             catch (Exception ex)
             {
                 Log.Error(ex);
+                OnError?.Invoke(ex);
             }
         }
 
@@ -186,15 +190,14 @@ namespace CommonLib.Networking.Http.Transport
             catch (Exception ex)
             {
                 Log.Error(ex);
+                OnError?.Invoke(ex);
             }
         }
 
-        public void Send(IHttpMessage message)
+        public void Send(INetworkMessage message)
         {
             if (message is null)
                 throw new ArgumentNullException(nameof(message));
-
-            Log.Debug($"Queued message: {message.GetType().FullName}");
 
             _data.Enqueue(message);
         }
@@ -209,7 +212,7 @@ namespace CommonLib.Networking.Http.Transport
                 if (_waiting)
                     return;
 
-                var messages = ListPool<IHttpMessage>.Shared.Rent();
+                var messages = ListPool<INetworkMessage>.Shared.Rent();
                 var message = new DataMessage() { Messages = messages, Sent = DateTime.Now };
 
                 while (_data.TryDequeue(out var msg))
@@ -219,14 +222,10 @@ namespace CommonLib.Networking.Http.Transport
 
                 InternalSend<DataMessage>(message, DataUrl, true, true, msg =>
                 {
-                    ListPool<IHttpMessage>.Shared.Return(messages);
-
-                    Log.Debug($"Received {msg.Messages.Count} messages");
+                    ListPool<INetworkMessage>.Shared.Return(messages);
 
                     foreach (var message in msg.Messages)
                     {
-                        Log.Debug($"Invoking message {message.GetType().FullName}");
-
                         try
                         {
                             OnMessage?.Invoke(message);
@@ -234,6 +233,7 @@ namespace CommonLib.Networking.Http.Transport
                         catch (Exception ex)
                         {
                             Log.Error(ex);
+                            OnError?.Invoke(ex);
                         }
                     }
                 });
@@ -241,14 +241,18 @@ namespace CommonLib.Networking.Http.Transport
             catch (Exception ex)
             {
                 Log.Error(ex);
+                OnError?.Invoke(ex);
             }
         }
 
-        private void InternalSend<T>(IHttpMessage message, string url, bool token, bool response, Action<T> callback) where T : IHttpMessage
+        private void InternalSend<T>(INetworkMessage message, string url, bool token, bool response, Action<T> callback) where T : INetworkMessage
             => Task.Run(async () => await InternalSendAsync(message, url, token, response, callback));
 
-        private async Task InternalSendAsync<T>(IHttpMessage message, string url, bool token, bool recvResponse, Action<T> callback) where T : IHttpMessage
+        private async Task InternalSendAsync<T>(INetworkMessage message, string url, bool token, bool recvResponse, Action<T> callback) where T : INetworkMessage
         {
+            if (string.IsNullOrWhiteSpace(_url))
+                return;
+
             if (token)
                 url += $"?token={_token}";
 
@@ -256,23 +260,18 @@ namespace CommonLib.Networking.Http.Transport
                 await Task.Delay(100);
 
             _waiting = true;
-            _log.Debug($"Requesting {url}");
 
             try
             {
-                _log.Debug("Sending request");
-
                 using (var request = new HttpRequestMessage(HttpMethod.Post, url))
                 {
                     if (message != null)
-                        await request.WriteBytesAsync(Serializer.Serialize(s => s.PutSerializable(message)));
+                        await request.WriteBytesAsync(WriterUtils.Write(writer => writer.WriteSerializable(message)));
 
                     using (var response = await _client.SendAsync(request))
                     {
                         _waiting = false;
                         _connecting = false;
-
-                        _log.Debug($"Response: {response.StatusCode}");
 
                         if (!response.IsSuccessStatusCode)
                         {
@@ -286,9 +285,12 @@ namespace CommonLib.Networking.Http.Transport
 
                                 if (bytes.Length > 4)
                                 {
-                                    Deserializer.Deserialize(bytes, deserializer =>
+                                    bytes.Read(reader =>
                                     {
-                                        callback?.Invoke(deserializer.GetDeserializable<T>());
+                                        var message = reader.ReadDeserializable<T>();
+
+                                        if (message != null)
+                                            callback?.Invoke(message);
                                     });
                                 }
                             }
@@ -299,6 +301,7 @@ namespace CommonLib.Networking.Http.Transport
             catch (Exception ex)
             {
                 _log.Error($"Send exception: {ex}");
+                OnError?.Invoke(ex);
 
                 _waiting = false;
                 _connecting = false;

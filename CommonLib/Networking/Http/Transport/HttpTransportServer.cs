@@ -8,12 +8,15 @@ using CommonLib.Extensions;
 using CommonLib.Logging;
 
 using CommonLib.Networking.Http.Transport.Enums;
-using CommonLib.Networking.Http.Transport.Messages.Interfaces;
+using CommonLib.Networking.Interfaces;
 using CommonLib.Networking.Http.Transport.Routes;
 
 using CommonLib.Pooling.Pools;
 
 using CommonLib.Utilities.Generation;
+
+using CommonLib.Networking.Http.Transport.Messages.Connection;
+using CommonLib.Networking.Http.Transport.Messages.Data;
 
 namespace CommonLib.Networking.Http.Transport
 {
@@ -30,8 +33,10 @@ namespace CommonLib.Networking.Http.Transport
         public event Action OnReady;
         public event Action OnStopped;
 
+        public event Action<Exception> OnError;
+
         public event Action<HttpTransportPeer> OnConnected;
-        public event Action<HttpTransportPeer, IHttpMessage> OnMessage;
+        public event Action<HttpTransportPeer, INetworkMessage> OnMessage;
         public event Action<HttpTransportPeer, DisconnectReason> OnDisconnected;
 
         public TimeSpan DisconnectDelay { get; set; } = TimeSpan.FromSeconds(1);
@@ -55,6 +60,9 @@ namespace CommonLib.Networking.Http.Transport
             if (port < 0 || port > ushort.MaxValue)
                 throw new ArgumentOutOfRangeException(nameof(port));
 
+            Serialization.Serialization.RegisterType(typeof(ConnectionMessage));
+            Serialization.Serialization.RegisterType(typeof(DataMessage));
+
             try
             {
                 Stop();
@@ -62,9 +70,9 @@ namespace CommonLib.Networking.Http.Transport
                 _log = new LogOutput($"Http Transport Server ({ip}:{port})");
                 _log.Setup();
 
-                Log.Debug($"Starting transport server ..");
-
                 _server = new HttpServer();
+                _server.OnError += HandleError;
+
                 _server.Start(new string[] { $"http://{ip}:{port}/" });
 
                 _server.AddRoute(new DisconnectRoute(this));
@@ -93,6 +101,8 @@ namespace CommonLib.Networking.Http.Transport
                         _timer.Dispose();
                         _timer = null;
                     }
+
+                    _server.OnError -= HandleError;
 
                     _server.Dispose();
                     _server = null;
@@ -154,10 +164,8 @@ namespace CommonLib.Networking.Http.Transport
             }
         }
 
-        internal void InternalMessage(HttpTransportPeer peer, IHttpMessage message)
+        internal void InternalMessage(HttpTransportPeer peer, INetworkMessage message)
         {
-            Log.Debug($"Invoking message {message.GetType().FullName}");
-
             try
             {
                 OnMessage?.Invoke(peer, message);
@@ -167,6 +175,9 @@ namespace CommonLib.Networking.Http.Transport
                 Log.Error(ex);
             }
         }
+
+        private void HandleError(Exception obj)
+            => OnError?.Invoke(obj);
 
         private void InternalUpdate()
         {

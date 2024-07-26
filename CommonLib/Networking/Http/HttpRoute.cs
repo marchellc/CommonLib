@@ -10,6 +10,8 @@ namespace CommonLib.Networking.Http
         public virtual string[] Methods { get; }
         public virtual string[] RequiredParameters { get; }
 
+        public virtual bool ReadContent { get; }
+
         public virtual async Task InvokeGetAsync(HttpRequest request, HttpListenerResponse response)
         {
 

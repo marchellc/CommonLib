@@ -52,23 +52,21 @@ namespace CommonLib.Serialization.Objects
             Flags = serializedData;
         }
 
-        public override void Serialize(Serializer serializer)
+        public override void Write(BinaryWriter writer)
         {
-            base.Serialize(serializer);
-
-            serializer.Put((byte)Flags);
+            writer.Write((byte)Flags);
 
             if ((Flags & SerializedData.Name) != 0)
-                serializer.Put(Name);
+                writer.Write(Name);
 
             if ((Flags & SerializedData.Path) != 0)
-                serializer.Put(Path);
+                writer.Write(Path);
 
             if ((Flags & SerializedData.Extension) != 0)
-                serializer.Put(Extension);
+                writer.Write(Extension);
 
             if ((Flags & SerializedData.Content) != 0)
-                serializer.Put(Content);
+                writer.Write(Content);
         }
     }
 }

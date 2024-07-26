@@ -5,6 +5,8 @@ using System.Linq;
 using System.Net;
 using System;
 using System.Threading.Tasks;
+using System.IO;
+using System.Text;
 
 namespace CommonLib.Networking.Http.Transport.Routes
 {
@@ -20,6 +22,8 @@ namespace CommonLib.Networking.Http.Transport.Routes
         public override string[] Methods { get; } = new string[] { "POST" };
         public override string[] RequiredParameters { get; } = new string[] { "token" };
 
+        public override bool ReadContent => true;
+
         public override async Task InvokePostAsync(HttpRequest request, HttpListenerResponse response)
         {
             try
@@ -33,14 +37,17 @@ namespace CommonLib.Networking.Http.Transport.Routes
                 }
                 else
                 {
-                    var deserializer = Deserializer.GetDeserializer(request.Content);
-                    var message = deserializer.GetDeserializable<DataMessage>();
-                    var queue = peer.InternalRegister(message.Sent, message.Messages);
+                    using (var stream = new MemoryStream(request.Content))
+                    using (var reader = new BinaryReader(stream, (request.ContentEncoding ?? WriterUtils.Encoding), false))
+                    {
+                        var message = reader.ReadDeserializable(new DataMessage());
+                        var queue = peer.InternalRegister(message.Sent, message.Messages);
 
-                    var responseMessage = new DataMessage() { Sent = DateTime.Now, Messages = queue.ToList() };
+                        var responseMessage = new DataMessage() { Sent = DateTime.Now, Messages = queue.ToList() };
 
-                    response.SetCode(HttpStatusCode.OK, "OK");
-                    await response.WriteBytesAsync(Serializer.Serialize(s => s.PutSerializable(responseMessage)));
+                        response.SetCode(HttpStatusCode.OK, "OK");
+                        await response.WriteBytesAsync(WriterUtils.Write(writer => writer.WriteSerializable(responseMessage)));
+                    }
                 }
             }
             catch (Exception ex)

@@ -52,7 +52,9 @@ namespace CommonLib.Extensions
 
             while (baseType != null)
             {
-                cache.Add(baseType);
+                if (!cache.Contains(baseType))
+                    cache.Add(baseType);
+
                 baseType = baseType.BaseType;
             }
 
@@ -66,7 +68,26 @@ namespace CommonLib.Extensions
 
                 while (baseType != null && baseType.IsInterface)
                 {
-                    cache.Add(baseType);
+                    if (!cache.Contains(baseType))
+                        cache.Add(baseType);
+
+                    var intfs = baseType.GetInterfaces();
+
+                    if (intfs != null && intfs.Length > 0)
+                    {
+                        foreach (var intfType in intfs)
+                        {
+                            if (!cache.Contains(intfType))
+                                cache.Add(intfType);
+
+                            foreach (var intf in intfType.GetInterfaces())
+                            {
+                                if (!cache.Contains(intf))
+                                    cache.Add(intf);
+                            }
+                        }
+                    }
+
                     baseType = baseType.BaseType;
                 }
             }
