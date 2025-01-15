@@ -1,10 +1,7 @@
-﻿using CommonLib.Logging;
-using CommonLib.Pooling.Pools;
-
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Linq;
 using System.Reflection;
+using System.Collections.Generic;
 
 namespace CommonLib.Extensions
 {
@@ -14,8 +11,6 @@ namespace CommonLib.Extensions
         private static readonly Dictionary<Type, Type[]> _implements = new Dictionary<Type, Type[]>();
 
         private static readonly BindingFlags _flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-        public static readonly LogOutput Log = new LogOutput("Type Extensions").Setup();
 
         public static Type ToGeneric(this Type type, params Type[] args)
             => type.MakeGenericType(args);
@@ -48,7 +43,7 @@ namespace CommonLib.Extensions
                 return implements.Contains(inherit);
 
             var baseType = type.BaseType;
-            var cache = ListPool<Type>.Shared.Rent();
+            var cache = new List<Type>();
 
             while (baseType != null)
             {
@@ -92,7 +87,7 @@ namespace CommonLib.Extensions
                 }
             }
 
-            return (_implements[type] = ListPool<Type>.Shared.ToArrayReturn(cache)).Contains(inherit);
+            return (_implements[type] = cache.ToArray()).Contains(inherit);
         }
 
         public static bool IsValidInstance(this Type type, object instance, bool suppliedForStatic = false)

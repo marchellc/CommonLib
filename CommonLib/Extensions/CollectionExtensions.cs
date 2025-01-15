@@ -1,17 +1,15 @@
-﻿using CommonLib.Utilities;
-using CommonLib.Pooling.Pools;
-
-using System;
+﻿using System;
 using System.Linq;
 using System.Collections;
-using System.Collections.Generic;
-
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace CommonLib.Extensions
 {
     public static class CollectionExtensions
     {
+        private static volatile Random random = new Random();
+        
         public static IEnumerable<T> WhereInstance<T>(this IEnumerable<object> objects, Func<T, bool> predicate)
             => objects.Where(value => value != null && value is T && (predicate is null || predicate((T)value))).Select(value => (T)value);
 
@@ -47,14 +45,14 @@ namespace CommonLib.Extensions
 
         public static void Shuffle<T>(this ICollection<T> source)
         {
-            var copy = ListPool<T>.Shared.Rent(source);
+            var copy = new List<T>(source);
             var size = copy.Count;
 
             while (size > 1)
             {
                 size--;
 
-                var index = Generator.Instance.GetInt32(0, size + 1);
+                var index = random.Next(0, size + 1);
                 var value = copy.ElementAt(index);
 
                 copy[index] = copy[size];
@@ -65,8 +63,6 @@ namespace CommonLib.Extensions
 
             foreach (var value in copy)
                 source.Add(value);
-
-            ListPool<T>.Shared.Return(copy);
         }
 
         public static void AddRange(this IList destination, IEnumerable source)

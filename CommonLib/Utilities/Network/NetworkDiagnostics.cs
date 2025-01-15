@@ -1,8 +1,7 @@
-﻿using CommonLib.Pooling.Pools;
-
-using System;
+﻿using System;
 using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 using System.Net;
 using System.Net.Sockets;
@@ -49,10 +48,12 @@ namespace CommonLib.Utilities
 
         public static PingHit[] TraceRoute(string host, int timeout = 10000, int timeToLive = 30, int bufferSize = 32)
         {
-            var routes = ListPool<PingHit>.Shared.Rent();
-            var buffer = Encoding.UTF8.GetBytes(Generator.Instance.GetString(bufferSize));
+            var routes = new List<PingHit>();
+            var buffer = new byte[bufferSize];
             var options = new PingOptions(timeToLive, true);
 
+            CommonLibrary.Random.NextBytes(buffer);
+            
             using (var sender = new Ping())
             {
                 for (int ttl = 1; ttl < timeToLive; ttl++)
@@ -73,7 +74,7 @@ namespace CommonLib.Utilities
                 }
             }
 
-            return ListPool<PingHit>.Shared.ToArrayReturn(routes);
+            return routes.ToArray();
         }
 
         public static void Ping(string host, int size, int count, int timeout, int timeToLive, PingFlags flags, Action<PingResult> callback)
@@ -96,13 +97,14 @@ namespace CommonLib.Utilities
             if (timeToLive < 1)
                 throw new ArgumentOutOfRangeException(nameof(timeToLive));
 
-            var hits = ListPool<PingHit>.Shared.Rent();
+            var hits = new List<PingHit>();
             var options = new PingOptions(timeToLive, (flags & PingFlags.DontFragment) != 0);
-            var str = Generator.Instance.GetString(size);
-            var data = Encoding.UTF8.GetBytes(str);
+            var data = new byte[size];
             var failed = 0;
             var stats = new Statistics<float>((high, low) => (high + low) / 2f, (high, value) => value > high, (low, value) => value < low);
 
+            CommonLibrary.Random.NextBytes(data);
+            
             using (var sender = new Ping())
             {
                 for (int i = 0; i < count; i++)
@@ -131,7 +133,7 @@ namespace CommonLib.Utilities
                 }
             }
 
-            return new PingResult(host, str, ListPool<PingHit>.Shared.ToArrayReturn(hits), flags, count, failed, timeout, timeToLive, MathUtils.PercentageOf(failed, count), stats);
+            return new PingResult(host, Encoding.UTF8.GetString(data), hits.ToArray(), flags, count, failed, timeout, timeToLive, MathUtils.PercentageOf(failed, count), stats);
         }
     }
 }

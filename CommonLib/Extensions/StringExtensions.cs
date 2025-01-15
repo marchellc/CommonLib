@@ -1,11 +1,10 @@
-﻿using CommonLib.Pooling.Pools;
-using CommonLib.Utilities;
+﻿using CommonLib.Utilities;
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Collections.Generic;
+using System.Text;
 using System.Text.RegularExpressions;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace CommonLib.Extensions
 {
@@ -41,7 +40,7 @@ namespace CommonLib.Extensions
 
             if (closeTagIndexes.Count > 0)
             {
-                var sb = StringBuilderPool.Shared.Rent();
+                var sb = new StringBuilder();
                 var previousIndex = 0;
 
                 foreach (int closeTagIndex in closeTagIndexes)
@@ -59,7 +58,7 @@ namespace CommonLib.Extensions
                 if (closeTagIndexes.Max() < text.Length)
                     sb.Append(text.Substring(closeTagIndexes.Max() + 1));
 
-                return StringBuilderPool.Shared.ToStringReturn(sb);
+                return sb.ToString();
             }
             else
             {
@@ -196,7 +195,7 @@ namespace CommonLib.Extensions
             if (string.IsNullOrWhiteSpace(input))
                 return input;
 
-            var builder = StringBuilderPool.Shared.Rent();
+            var builder = new StringBuilder();
 
             for (int i = 0; i < input.Length; i++)
             {
@@ -206,7 +205,7 @@ namespace CommonLib.Extensions
                     builder.Append(c);
             }
 
-            return StringBuilderPool.Shared.ToStringReturn(builder);
+            return builder.ToString();
         }
 
         public static int GetIntegerCode(this string str)
@@ -296,7 +295,7 @@ namespace CommonLib.Extensions
             if (str.Length <= 1)
                 return str;
 
-            var sb = StringBuilderPool.Shared.Rent();
+            var sb = new StringBuilder();
 
             sb.Append(char.ToLowerInvariant(str[0]));
 
@@ -308,7 +307,7 @@ namespace CommonLib.Extensions
                     sb.Append(str[i]);
             }
 
-            return StringBuilderPool.Shared.ToStringReturn(sb);
+            return sb.ToString();
         }
 
         public static string CamelCase(this string str)

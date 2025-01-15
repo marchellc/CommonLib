@@ -1,6 +1,4 @@
-﻿using CommonLib.Pooling.Pools;
-
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace CommonLib.Extensions
@@ -39,14 +37,14 @@ namespace CommonLib.Extensions
 
         public static void Remove<T>(this Queue<T> queue, T value)
         {
-            var queueValues = ListPool<T>.Shared.Rent(queue);
+            var queueValues = new List<T>(queue.Count);
 
             queueValues.Remove(value);
 
             foreach (var queueValue in queueValues)
                 queue.Enqueue(queueValue);
-
-            ListPool<T>.Shared.Return(queueValues);
+            
+            queueValues.Clear();
         }
 
         public static void Clear<T>(this ConcurrentQueue<T> queue)

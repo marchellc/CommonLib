@@ -1,14 +1,12 @@
-﻿using CommonLib.Logging;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace CommonLib.Utilities
+namespace CommonLib.Utilities.Console
 {
     public static class ConsoleArgs
     {
-        private static Dictionary<string, string> keys = new Dictionary<string, string>();
-        private static HashSet<string> switches = new HashSet<string>();
+        private static volatile Dictionary<string, string> keys = new Dictionary<string, string>();
+        private static volatile HashSet<string> switches = new HashSet<string>();
 
         public static void Parse(string[] args)
         {
@@ -24,7 +22,7 @@ namespace CommonLib.Utilities
                 {
                     if (!args[i].Contains("="))
                     {
-                        LogOutput.CommonLib?.Warn($"Failed to parse argument '{args[i]}' at {i}");
+                        CommonLog.Warn("Console API", $"Failed to parse argument {args[i]}");
                         continue;
                     }
 
@@ -32,7 +30,7 @@ namespace CommonLib.Utilities
 
                     if (split.Length != 2)
                     {
-                        LogOutput.CommonLib?.Warn($"Failed to parse argument '{args[i]}' at {i}");
+                        CommonLog.Warn("Console API", $"Failed to parse argument {args[i]}");
                         continue;
                     }
 
@@ -41,13 +39,11 @@ namespace CommonLib.Utilities
 
                     if (keys.ContainsKey(key))
                     {
-                        LogOutput.CommonLib?.Warn($"Failed to parse argument '{args[i]}' at {i}: this argument already exists");
+                        CommonLog.Warn("Console API", $"Failed to parse argument {args[i]}");
                         continue;
                     }
 
                     keys[key] = value;
-
-                    LogOutput.CommonLib?.Trace($"Loaded argument: {key} ({value})");
                 }
                 else if (args[i].StartsWith("-"))
                 {
@@ -55,28 +51,31 @@ namespace CommonLib.Utilities
 
                     if (switches.Contains(switchName))
                     {
-                        LogOutput.CommonLib?.Warn($"Failed to parse argument '{args[i]}' at {i}: this switch already exists");
+                        CommonLog.Warn("Console API", $"Failed to parse argument {args[i]}");
                         continue;
                     }
 
                     switches.Add(switchName);
-
-                    LogOutput.CommonLib?.Trace($"Loaded switch: {switchName}");
-                }
-                else
-                {
-                    LogOutput.CommonLib?.Warn($"Failed to parse argument '{args[i]}' at {i}");
-                    continue;
                 }
             }
-
-            LogOutput.CommonLib?.Info($"Parsed {keys.Count} key(s) and {switches.Count} switch(es) from {args.Length} startup argument(s).");
         }
 
         public static bool HasSwitch(string switchName)
             => switches.Contains(switchName);
+        
+        public static bool HasValue(string key)
+            => keys.ContainsKey(key);
 
         public static string GetValue(string key)
             => keys.TryGetValue(key, out var value) ? value : string.Empty;
+        
+        public static string GetValueOrDefault(string key, string defaultValue = "")
+            => keys.TryGetValue(key, out var value) ? value : defaultValue;
+        
+        public static T GetValue<T>(string key, Func<string, T> converter)
+            => keys.TryGetValue(key, out var value) ? converter(value) : throw new KeyNotFoundException(key);
+        
+        public static T GetValueOrDefault<T>(string key, Func<string, T> converter, T defaultValue)
+            => keys.TryGetValue(key, out var value) ? converter(value) : defaultValue;
     }
 }

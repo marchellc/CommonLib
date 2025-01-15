@@ -1,9 +1,7 @@
-﻿using CommonLib.Logging;
-
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Linq;
 using System.Reflection;
+using System.Collections.Generic;
 
 namespace CommonLib.Extensions
 {
@@ -21,7 +19,7 @@ namespace CommonLib.Extensions
 
             if (RuntimeAssemblyType is null)
             {
-                LogOutput.CommonLib.Warn($"Type 'System.Reflection.RuntimeAssembly' is not present in this runtime!");
+                CommonLog.Warn("Assembly Extensions", $"Type 'System.Reflection.RuntimeAssembly' is not present in this runtime!");
                 return;
             }
 
@@ -29,7 +27,7 @@ namespace CommonLib.Extensions
 
             if (runtimeAssemblyMethod is null)
             {
-                LogOutput.CommonLib.Warn($"RuntimeAssembly.GetRawBytes method does not exist in this runtime!");
+                CommonLog.Warn("Assembly Extensions", $"RuntimeAssembly.GetRawBytes method does not exist in this runtime!");
                 return;
             }
 

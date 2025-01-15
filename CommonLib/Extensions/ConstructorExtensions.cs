@@ -1,9 +1,7 @@
-﻿using CommonLib.Logging;
-
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Linq;
 using System.Reflection;
+using System.Collections.Generic;
 
 namespace CommonLib.Extensions
 {
@@ -11,8 +9,6 @@ namespace CommonLib.Extensions
     {
         private static readonly Dictionary<Type, ConstructorInfo[]> _constructors = new Dictionary<Type, ConstructorInfo[]>();
         private static readonly BindingFlags _flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-        public static readonly LogOutput Log = new LogOutput("Constructor Extensions").Setup();
 
         public static ConstructorInfo[] GetAllConstructors(this Type type)
         {
@@ -36,20 +32,12 @@ namespace CommonLib.Extensions
 
         public static T TryConstruct<T>(params object[] parameters)
         {
-            try
-            {
-                var value = typeof(T).Construct(parameters);
+            var value = typeof(T).Construct(parameters);
 
-                if (value is null || value is not T t)
-                    return default;
-
-                return t;
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Failed to construct type '{typeof(T).ToName()}' due to an exception:\n{ex}");
+            if (value is null || value is not T t)
                 return default;
-            }
+
+            return t;
         }
     }
 }

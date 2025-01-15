@@ -1,87 +1,37 @@
-﻿using CommonLib.Pooling.Pools;
-using CommonLib.Logging.File;
-using CommonLib.Logging;
-using CommonLib.Utilities;
-using CommonLib.Extensions;
-using CommonLib.IO;
+﻿using CommonLib.Utilities.Console;
 
 using System;
-using System.Diagnostics;
-using System.Reflection;
-using System.Globalization;
-using System.Threading;
 using System.Linq;
+using System.Threading;
+using System.Reflection;
+using System.Diagnostics;
+using System.Globalization;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace CommonLib
 {
     public class CommonLibrary
     {
-        private static string cachedAppName;
-
-        public static event Action OnInitialized;
-        public static event Action OnUnloaded;
-
-        public static bool IsDebugBuild { get; private set; }
-        public static bool IsTraceBuild { get; private set; }
-        public static bool IsInitialized { get; private set; }
-
-        public static DateTime InitializedAt { get; private set; }
+        private static volatile string cachedAppName;
+        private static volatile ConcurrentStack<Type> loadedTypes = new ConcurrentStack<Type>();
+        
+        public static volatile Random Random = new Random();
 
         public static Assembly Assembly { get; private set; }
         public static Version Version { get; private set; }
 
-        public static Directory Directory { get; private set; }
-
         public static void Initialize(IEnumerable<string> arguments)
         {
-            if (IsInitialized)
-                return;
-
             try
             {
-                var initStarted = DateTime.Now;
-
-                IsInitialized = true;
-
-#if DEBUG
-                IsDebugBuild = true;
-#elif TRACE
-                IsTraceBuild = true;
-#endif
-
                 Assembly = Assembly.GetExecutingAssembly();
                 Version = Assembly.GetName().Version;
 
-                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-
-                if (!System.IO.Directory.Exists($"{appData}/CommonLib Library"))
-                    System.IO.Directory.CreateDirectory($"{appData}/CommonLib Library");
-
-                var appName = GetAppName();
-
-                if (!System.IO.Directory.Exists($"{appData}/CommonLib Library/{appName}"))
-                    System.IO.Directory.CreateDirectory($"{appData}/CommonLib Library/{appName}");
-
-                Directory = new Directory($"{appData}/CommonLib Library/{appName}");
-
-                LogUtils.Default = IsDebugBuild ? LogUtils.General | LogUtils.Debug : LogUtils.General;
-                LogOutput.Init();
-
-                if (!System.IO.Directory.Exists($"{Directory.Path}/Logs"))
-                    System.IO.Directory.CreateDirectory($"{Directory.Path}/Logs");
-
-                FileLogger.Init($"{Directory.Path}/{DateTime.Now.Day}_{DateTime.Now.Month} {DateTime.Now.Hour}h {DateTime.Now.Minute}m.txt");
-
                 ConsoleArgs.Parse(arguments?.ToArray() ?? Array.Empty<string>());
+                CommonLog.IsDebugEnabled = ConsoleArgs.HasSwitch("commonLibDebug");
 
-                if (IsDebugBuild || ConsoleArgs.HasSwitch("DebugLogs"))
-                {
-                    LogOutput.CommonLib.Enable(LogLevel.Debug);
-                    LogUtils.Default = LogUtils.General | LogUtils.Debug;
-                }
-
-                if (ConsoleArgs.HasSwitch("InvariantCulture"))
+                if (ConsoleArgs.HasSwitch("commonLibInvariantCulture"))
                 {
                     try
                     {
@@ -91,35 +41,29 @@ namespace CommonLib
                     catch { }
                 }
 
-                if (ConsoleArgs.HasSwitch("EnableCommands"))
+                if (ConsoleArgs.HasSwitch("commonLibCommands"))
                     ConsoleCommands.Enable();
 
-                MethodExtensions.EnableLogging = ConsoleArgs.HasSwitch("MethodLogger");
-
-                InitializedAt = DateTime.Now;
-                OnInitialized.Call();
-
-                LogOutput.CommonLib.Info($"Library initialized (version: {Version}, time: {DateTime.Now.ToString("G")}), took {(InitializedAt - initStarted).TotalSeconds} second(s)!");
+                if (AppDomain.CurrentDomain != null)
+                    AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoaded;
             }
             catch (Exception ex)
             {
-                LogOutput.Raw(ex, ConsoleColor.Red);
+                CommonLog.Raw(ex);
             }
         }
 
         public static void Unload()
         {
-            LogOutput.CommonLib.Info($"Unloading library ..");
-
-            OnUnloaded.Call();
-            InitializedAt = default;
-
+            if (AppDomain.CurrentDomain != null)
+                AppDomain.CurrentDomain.AssemblyLoad -= OnAssemblyLoaded;
+            
             Assembly = null;
+            
             cachedAppName = null;
-
-            LogOutput.CommonLib.Info($"Library unloaded!");
-
-            IsInitialized = false;
+            
+            loadedTypes?.Clear();
+            loadedTypes = null;
         }
 
         public static string GetAppName()
@@ -145,9 +89,12 @@ namespace CommonLib
             catch { return cachedAppName = "Default App"; }
         }
 
-        public static List<Type> SafeQueryTypes()
+        public static IEnumerable<Type> SafeQueryTypes()
         {
-            var assemblies = ListPool<Assembly>.Shared.Rent();
+            if (loadedTypes != null)
+                return loadedTypes;
+
+            var assemblies = new List<Assembly>();
 
             try
             {
@@ -180,8 +127,8 @@ namespace CommonLib
             }
             catch { }
 
-            var types = new List<Type>();
-
+            loadedTypes = new ConcurrentStack<Type>();
+            
             try
             {
                 foreach (var assembly in assemblies)
@@ -192,7 +139,7 @@ namespace CommonLib
                         {
                             try
                             {
-                                types.Add(type);
+                                loadedTypes.Push(type);
                             }
                             catch { }
                         }
@@ -201,8 +148,38 @@ namespace CommonLib
                 }
             }
             catch { }
+            
+            return loadedTypes;
+        }
 
-            return types;
+        private static void OnAssemblyLoaded(object _, AssemblyLoadEventArgs ev)
+        {
+            if (ev.LoadedAssembly is null)
+                return;
+
+            loadedTypes ??= new ConcurrentStack<Type>();
+            
+            try
+            {
+                foreach (var type in ev.LoadedAssembly.GetTypes())
+                {
+                    try
+                    {
+                        if (loadedTypes.Contains(type))
+                            continue;
+                        
+                        loadedTypes.Push(type);
+                    }
+                    catch
+                    {
+                        
+                    }
+                }
+            }
+            catch
+            {
+                
+            }
         }
     }
 }

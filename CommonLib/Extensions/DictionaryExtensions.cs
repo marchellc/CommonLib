@@ -1,6 +1,4 @@
-﻿using CommonLib.Pooling.Pools;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
@@ -9,19 +7,6 @@ namespace CommonLib.Extensions
 {
     public static class DictionaryExtensions
     {
-        public static void ReturnToShared<TKey, TValue>(this Dictionary<TKey, TValue> dict)
-            => DictionaryPool<TKey, TValue>.Shared.Return(dict);
-
-        public static void ExternalModify<TKey, TValue>(this IDictionary<TKey, TValue> dict, Action<TKey, TValue, IDictionary<TKey, TValue>> action)
-        {
-            var copy = DictionaryPool<TKey, TValue>.Shared.Rent(dict);
-
-            foreach (var key in copy.Keys)
-                action.Call(key, copy[key], dict);
-
-            copy.ReturnToShared();
-        }
-
         public static void SetValues<TKey, TValue>(this IDictionary<TKey, TValue> dict, Func<TKey, bool> predicate, TValue value)
         {
             foreach (var key in dict.Keys)
@@ -91,7 +76,7 @@ namespace CommonLib.Extensions
             if (index < 1 || index >= dictionary.Count)
                 return;
 
-            var copy = DictionaryPool<TKey, TValue>.Shared.Rent();
+            var copy = new Dictionary<TKey, TValue>();
 
             for (int i = 0; i < dictionary.Count; i++)
             {
@@ -108,8 +93,6 @@ namespace CommonLib.Extensions
 
             dictionary.Clear();
             dictionary.CopyFrom(copy);
-
-            copy.ReturnToShared();
         }
 
         public static void SetIndexKey<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, int index, TKey key)
@@ -117,7 +100,7 @@ namespace CommonLib.Extensions
             if (index < 1 || index >= dictionary.Count)
                 return;
 
-            var copy = DictionaryPool<TKey, TValue>.Shared.Rent();
+            var copy = new Dictionary<TKey, TValue>();
 
             for (int i = 0; i < dictionary.Count; i++)
             {
@@ -135,8 +118,6 @@ namespace CommonLib.Extensions
 
             dictionary.Clear();
             dictionary.CopyFrom(copy);
-
-            copy.ReturnToShared();
         }
 
         public static void SetIndexValue<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, int index, TValue value)
@@ -144,7 +125,7 @@ namespace CommonLib.Extensions
             if (index < 1 || index >= dictionary.Count)
                 return;
 
-            var copy = DictionaryPool<TKey, TValue>.Shared.Rent();
+            var copy = new Dictionary<TKey, TValue>();
 
             for (int i = 0; i < dictionary.Count; i++)
             {
@@ -162,8 +143,6 @@ namespace CommonLib.Extensions
 
             dictionary.Clear();
             dictionary.CopyFrom(copy);
-
-            copy.ReturnToShared();
         }
 
         public static Dictionary<TKey, TValue> Copy<TKey, TValue>(this IDictionary<TKey, TValue> source)

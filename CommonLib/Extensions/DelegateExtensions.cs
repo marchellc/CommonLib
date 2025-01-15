@@ -1,21 +1,13 @@
-﻿using CommonLib.Logging;
-
-using System;
+﻿using System;
 
 namespace CommonLib.Extensions
 {
     public static class DelegateExtensions
     {
-        public static readonly LogOutput Log = new LogOutput("Delegate Extensions").Setup();
-        public static bool EnableLogging;
-
         public static void Call(this Action action, Action callback = null, Action<Exception> errorCallback = null)
         {
             if (action is null)
                 return;
-
-            if (EnableLogging)
-                Log.Debug($"Calling function: {action.Method.ToName()}");
 
             try
             {
@@ -25,7 +17,6 @@ namespace CommonLib.Extensions
             catch (Exception ex)
             {
                 errorCallback.Call(ex);
-                Log.Error($"An error ocurred while executing '{action.Method.ToName()}':\n{ex}");
             }
         }
 
@@ -33,9 +24,6 @@ namespace CommonLib.Extensions
         {
             if (action is null)
                 return;
-
-            if (EnableLogging)
-                Log.Debug($"Calling function: {action.Method.ToName()}");
 
             try
             {
@@ -45,7 +33,6 @@ namespace CommonLib.Extensions
             catch (Exception ex)
             {
                 errorCallback.Call(ex);
-                Log.Error($"An error ocurred while executing '{action.Method.ToName()}':\n{ex}");
             }
         }
 
@@ -53,9 +40,6 @@ namespace CommonLib.Extensions
         {
             if (action is null)
                 return;
-
-            if (EnableLogging)
-                Log.Debug($"Calling function: {action.Method.ToName()}");
 
             try
             {
@@ -65,7 +49,6 @@ namespace CommonLib.Extensions
             catch (Exception ex)
             {
                 errorCallback.Call(ex);
-                Log.Error($"An error ocurred while executing '{action.Method.ToName()}':\n{ex}");
             }
         }
 
@@ -73,9 +56,6 @@ namespace CommonLib.Extensions
         {
             if (action is null)
                 return;
-
-            if (EnableLogging)
-                Log.Debug($"Calling function: {action.Method.ToName()}");
 
             try
             {
@@ -85,7 +65,6 @@ namespace CommonLib.Extensions
             catch (Exception ex)
             {
                 errorCallback.Call(ex);
-                Log.Error($"An error ocurred while executing '{action.Method.ToName()}':\n{ex}");
             }
         }
 
@@ -94,9 +73,6 @@ namespace CommonLib.Extensions
             if (func is null)
                 return default;
 
-            if (EnableLogging)
-                Log.Debug($"Calling function: {func.Method.ToName()}");
-
             try
             {
                 return func();
@@ -104,7 +80,6 @@ namespace CommonLib.Extensions
             catch (Exception ex)
             {
                 errorCallback.Call(ex);
-                Log.Error($"An error ocurred while executing '{func.Method.ToName()}':\n{ex}");
             }
 
             return default;
@@ -115,9 +90,6 @@ namespace CommonLib.Extensions
             if (func is null)
                 return default;
 
-            if (EnableLogging)
-                Log.Debug($"Calling function: {func.Method.ToName()}");
-
             try
             {
                 return func(item);
@@ -125,7 +97,6 @@ namespace CommonLib.Extensions
             catch (Exception ex)
             {
                 errorCallback.Call(ex);
-                Log.Error($"An error ocurred while executing '{func.Method.ToName()}':\n{ex}");
             }
 
             return default;
@@ -136,9 +107,6 @@ namespace CommonLib.Extensions
             if (func is null)
                 return default;
 
-            if (EnableLogging)
-                Log.Debug($"Calling function: {func.Method.ToName()}");
-
             try
             {
                 return func(item1, item2);
@@ -146,7 +114,6 @@ namespace CommonLib.Extensions
             catch (Exception ex)
             {
                 errorCallback.Call(ex);
-                Log.Error($"An error ocurred while executing '{func.Method.ToName()}':\n{ex}");
             }
 
             return default;

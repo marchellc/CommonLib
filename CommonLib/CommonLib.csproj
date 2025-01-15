@@ -208,48 +208,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="IO\Caching\FileCache.cs" />
-    <Compile Include="IO\Caching\Interfaces\ICache.cs" />
-    <Compile Include="IO\Caching\MemoryCache.cs" />
-    <Compile Include="Configs\ConfigAttribute.cs" />
-    <Compile Include="Configs\ConfigFile.cs" />
-    <Compile Include="Extensions\CachingExtensions.cs" />
+    <Compile Include="CommonLog.cs" />
     <Compile Include="Extensions\ConstructorExtensions.cs" />
     <Compile Include="Extensions\ObjectExtensions.cs" />
     <Compile Include="Extensions\StackExtensions.cs" />
     <Compile Include="Extensions\StringBuilderExtensions.cs" />
-    <Compile Include="IO\Directories\DirectoryWatcher.cs" />
-    <Compile Include="IO\Files\FileLockUtils.cs" />
-    <Compile Include="IO\Files\FileWatcher.cs" />
-    <Compile Include="Logging\Logger.cs" />
-    <Compile Include="Networking\Http\HttpDispatch.cs" />
-    <Compile Include="Networking\Http\HttpExtensions.cs" />
-    <Compile Include="Networking\Http\HttpRequest.cs" />
-    <Compile Include="Networking\Http\HttpRoute.cs" />
-    <Compile Include="Networking\Http\HttpServer.cs" />
-    <Compile Include="Networking\Http\Routes\DynamicRoute.cs" />
-    <Compile Include="Networking\Http\Transport\Enums\DisconnectReason.cs" />
-    <Compile Include="Networking\Http\Transport\Enums\RejectReason.cs" />
-    <Compile Include="Networking\Http\Transport\HttpTransportClient.cs" />
-    <Compile Include="Networking\Http\Transport\HttpTransportPeer.cs" />
-    <Compile Include="Networking\Http\Transport\HttpTransportServer.cs" />
-    <Compile Include="Networking\Http\Transport\Messages\ConnectionMessage.cs" />
-    <Compile Include="Networking\Http\Transport\Messages\DataMessage.cs" />
-    <Compile Include="Networking\Interfaces\INetworkMessage.cs" />
-    <Compile Include="Networking\Http\Transport\Routes\ConnectRoute.cs" />
-    <Compile Include="Networking\Http\Transport\Routes\DataRoute.cs" />
-    <Compile Include="Networking\Http\Transport\Routes\DisconnectRoute.cs" />
-    <Compile Include="Pooling\Pool.cs" />
-    <Compile Include="Pooling\Pools\ArrayPool.cs" />
-    <Compile Include="Serialization\Compression.cs" />
-    <Compile Include="Serialization\Deserialization.cs" />
-    <Compile Include="Serialization\IDeserializableObject.cs" />
-    <Compile Include="Serialization\ISerializableObject.cs" />
-    <Compile Include="Serialization\Object.cs" />
-    <Compile Include="Serialization\Objects\FileObject.cs" />
-    <Compile Include="Serialization\ReaderUtils.cs" />
-    <Compile Include="Serialization\Serialization.cs" />
-    <Compile Include="Serialization\WriterUtils.cs" />
     <Compile Include="Utilities\Console\ConsoleArgs.cs" />
     <Compile Include="Utilities\Console\ConsoleCommands.cs" />
     <Compile Include="Extensions\ArrayExtensions.cs" />
@@ -268,34 +231,9 @@
     <Compile Include="Extensions\StringExtensions.cs" />
     <Compile Include="Extensions\TaskExtensions.cs" />
     <Compile Include="Extensions\TypeExtensions.cs" />
-    <Compile Include="Utilities\Chance.cs" />
     <Compile Include="Utilities\FastByteConverter.cs" />
-    <Compile Include="Utilities\Generation\BasicGenerator.cs" />
-    <Compile Include="IO\Directories\Directory.cs" />
-    <Compile Include="IO\Files\File.cs" />
     <Compile Include="CommonLibrary.cs" />
-    <Compile Include="Logging\Console\ConsoleLogger.cs" />
-    <Compile Include="Logging\File\FileLogger.cs" />
-    <Compile Include="Logging\ILogger.cs" />
-    <Compile Include="Logging\LogCharacter.cs" />
-    <Compile Include="Logging\LogEvents.cs" />
-    <Compile Include="Logging\LogLevel.cs" />
-    <Compile Include="Logging\LogMessage.cs" />
-    <Compile Include="Logging\LogOutput.cs" />
-    <Compile Include="Logging\LogUtils.cs" />
-    <Compile Include="Pooling\PoolableObject.cs" />
-    <Compile Include="Pooling\Pools\DictionaryPool.cs" />
-    <Compile Include="Pooling\Pools\HashSetPool.cs" />
-    <Compile Include="Pooling\Pools\ListPool.cs" />
-    <Compile Include="Pooling\Pools\ObjectPool.cs" />
-    <Compile Include="Pooling\Pools\StringBuilderPool.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Utilities\Generation\UniqueByteGenerator.cs" />
-    <Compile Include="Utilities\Generation\UniqueGenerator.cs" />
-    <Compile Include="Utilities\Generation\UniqueInt16Generator.cs" />
-    <Compile Include="Utilities\Generation\UniqueInt32Generator.cs" />
-    <Compile Include="Utilities\Generation\UniqueStringGenerator.cs" />
-    <Compile Include="Utilities\Generation\Generator.cs" />
     <Compile Include="Extensions\IndexExtensions.cs" />
     <Compile Include="Utilities\JsonUtils.cs" />
     <Compile Include="Utilities\MathUtils.cs" />
@@ -303,7 +241,6 @@
     <Compile Include="Utilities\Network\Ping\PingFlags.cs" />
     <Compile Include="Utilities\Network\Ping\PingHit.cs" />
     <Compile Include="Utilities\Network\Ping\PingResult.cs" />
-    <Compile Include="Utilities\Optional.cs" />
     <Compile Include="Utilities\RegexUtils.cs" />
     <Compile Include="Utilities\Statistics.cs" />
   </ItemGroup>
@@ -311,6 +248,5 @@
     <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

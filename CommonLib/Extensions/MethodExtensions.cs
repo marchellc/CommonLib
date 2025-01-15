@@ -1,13 +1,8 @@
-﻿using CommonLib.Extensions;
-using CommonLib.Logging;
-using CommonLib.Pooling.Pools;
-using CommonLib.Utilities;
-
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Collections.Generic;
 
 namespace CommonLib.Extensions
 {
@@ -18,12 +13,8 @@ namespace CommonLib.Extensions
         private static readonly Dictionary<Type, MethodInfo[]> _methods = new Dictionary<Type, MethodInfo[]>();
         private static readonly Dictionary<MethodBase, ParameterInfo[]> _params = new Dictionary<MethodBase, ParameterInfo[]>();
 
-        public static readonly LogOutput Log = new LogOutput("Method Extensions").Setup();
-
         public static readonly OpCode[] OneByteCodes;
         public static readonly OpCode[] TwoByteCodes;
-
-        public static bool EnableLogging;
 
         static MethodExtensions()
         {
@@ -93,8 +84,6 @@ namespace CommonLib.Extensions
             }
             catch (Exception ex)
             {
-                Log.Error($"Failed to create delegate '{typeof(TDelegate).FullName}' for method '{method.ToName()}':\n{ex}");
-
                 del = null;
                 return false;
             }
@@ -115,8 +104,6 @@ namespace CommonLib.Extensions
             }
             catch (Exception ex)
             {
-                Log.Error($"Failed to create delegate '{delegateType.FullName}' for method '{method.ToName()}':\n{ex}");
-
                 del = null;
                 return false;
             }
@@ -137,8 +124,6 @@ namespace CommonLib.Extensions
             }
             catch (Exception ex)
             {
-                Log.Error($"Failed to create delegate '{delegateType.FullName}' for method '{method.ToName()}':\n{ex}");
-
                 del = null;
                 return false;
             }
@@ -159,8 +144,6 @@ namespace CommonLib.Extensions
             }
             catch (Exception ex)
             {
-                Log.Error($"Failed to create delegate '{typeof(TDelegate).FullName}' for method '{method.ToName()}':\n{ex}");
-
                 del = null;
                 return false;
             }
@@ -186,7 +169,6 @@ namespace CommonLib.Extensions
             }
             catch (Exception ex)
             {
-                Log.Error($"An exception occured while calling method '{method.ToName()}':\n{ex}");
                 return null;
             }
         }
@@ -199,7 +181,6 @@ namespace CommonLib.Extensions
             }
             catch (Exception ex)
             {
-                Log.Error($"An exception occured while calling method '{method.ToName()}':\n{ex}");
                 return null;
             }
         }
@@ -212,7 +193,6 @@ namespace CommonLib.Extensions
             }
             catch (Exception ex)
             {
-                Log.Error($"An exception occured while calling method '{method.ToName()}':\n{ex}");
                 return default;
             }
         }
@@ -225,16 +205,12 @@ namespace CommonLib.Extensions
             }
             catch (Exception ex)
             {
-                Log.Error($"An exception occured while calling method '{method.ToName()}':\n{ex}");
                 return default;
             }
         }
 
         private static object InternalCall(MethodInfo method, object target, object[] args)
         {
-            if (EnableLogging)
-                Log.Verbose($"Calling method '{method.ToName()}' (args={args.Length} target={target?.GetType().FullName ?? "null"}");
-
             return method.Invoke(target, args);
         }
     }

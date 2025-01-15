@@ -1,6 +1,4 @@
-﻿using CommonLib.Pooling.Pools;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace CommonLib.Extensions
@@ -12,7 +10,7 @@ namespace CommonLib.Extensions
         public static TEnum[] GetFlags<TEnum>(this TEnum en) where TEnum : struct, Enum
         {
             var values = GetValues<TEnum>();
-            var cache = ListPool<TEnum>.Shared.Rent();
+            var cache = new List<TEnum>();
 
             foreach (var value in values)
             {
@@ -22,7 +20,7 @@ namespace CommonLib.Extensions
                 cache.Add(value);
             }
 
-            return ListPool<TEnum>.Shared.ToArrayReturn(cache);
+            return cache.ToArray();
         }
 
         public static TEnum[] GetValues<TEnum>() where TEnum : struct, Enum
