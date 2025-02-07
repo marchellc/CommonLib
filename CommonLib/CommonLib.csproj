@@ -209,10 +209,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CommonLog.cs" />
+    <Compile Include="EventSync\EventSyncBase.cs" />
+    <Compile Include="EventSync\EventSyncHandler.cs" />
     <Compile Include="Extensions\ConstructorExtensions.cs" />
     <Compile Include="Extensions\ObjectExtensions.cs" />
     <Compile Include="Extensions\StackExtensions.cs" />
     <Compile Include="Extensions\StringBuilderExtensions.cs" />
+    <Compile Include="Http\Client\Events\ResponseReceivedEvent.cs" />
+    <Compile Include="Http\Client\HttpClient.cs" />
+    <Compile Include="Http\Client\HttpContext.cs" />
+    <Compile Include="Http\Client\HttpRequest.cs" />
+    <Compile Include="Http\Server\Events\ContextReceivedEvent.cs" />
+    <Compile Include="Http\Server\Events\ErrorReceivedEvent.cs" />
+    <Compile Include="Http\Server\HttpContext.cs" />
+    <Compile Include="Http\Server\HttpRoute.cs" />
+    <Compile Include="Http\Server\HttpServer.cs" />
     <Compile Include="Utilities\Console\ConsoleArgs.cs" />
     <Compile Include="Utilities\Console\ConsoleCommands.cs" />
     <Compile Include="Extensions\ArrayExtensions.cs" />

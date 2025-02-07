@@ -21,6 +21,17 @@ namespace CommonLib
         public static Assembly Assembly { get; private set; }
         public static Version Version { get; private set; }
 
+        public static IEnumerable<Type> LoadedTypes
+        {
+            get
+            {
+                if (loadedTypes is null)
+                    _ = SafeQueryTypes();
+
+                return loadedTypes;
+            }
+        }
+
         public static void Initialize(IEnumerable<string> arguments)
         {
             try
@@ -86,7 +97,7 @@ namespace CommonLib
                 using (var proc = Process.GetCurrentProcess())
                     return cachedAppName = System.IO.Path.GetFileNameWithoutExtension(proc.ProcessName);
             }
-            catch { return cachedAppName = "Default App"; }
+            catch { return cachedAppName = "Unknown App"; }
         }
 
         public static IEnumerable<Type> SafeQueryTypes()
