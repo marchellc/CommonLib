@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using CommonLib.EventSync;
 using CommonLib.Extensions;
 using CommonLib.Http.Server.Events;
@@ -23,8 +24,8 @@ public class HttpServer : IDisposable
     
     private volatile HttpListener listener;
     private volatile EventSyncHandler eventSyncHandler;
-    
-    private volatile ConcurrentDictionary<int, HttpRoute> routes = new ConcurrentDictionary<int, HttpRoute>();
+
+    private volatile ConcurrentDictionary<int, HttpRoute> routes = new();
     
     public string Prefix
     {
@@ -88,19 +89,13 @@ public class HttpServer : IDisposable
 
     public void Start()
     {
-        if (string.IsNullOrWhiteSpace(prefix))
-            throw new Exception("You must provide a listening prefix");
-        
-        if (!EnableHttp && !EnableHttps)
-            throw new Exception("You must listen on HTTP or HTTPS");
+        if (string.IsNullOrWhiteSpace(prefix)) throw new Exception("You must provide a listening prefix");
+        if (!EnableHttp && !EnableHttps) throw new Exception("You must listen on HTTP or HTTPS");
         
         listener = new HttpListener();
         
-        if (EnableHttp)
-            listener.Prefixes.Add(HttpPrefix);
-        
-        if (EnableHttps)
-            listener.Prefixes.Add(HttpsPrefix);
+        if (EnableHttp) listener.Prefixes.Add(HttpPrefix);
+        if (EnableHttps) listener.Prefixes.Add(HttpsPrefix);
 
         listener.Start();
 
@@ -111,8 +106,7 @@ public class HttpServer : IDisposable
     {
         if (listener != null)
         {
-            if (listener.IsListening)
-                listener.Stop();
+            if (listener.IsListening) listener.Stop();
             
             listener.Close();
             listener = null;
@@ -134,14 +128,28 @@ public class HttpServer : IDisposable
 
     public int RemoveRoutes<T>() where T : HttpRoute, new()
         => RemoveRoutes(typeof(T));
+
+    public int RemoveRoutes(Assembly assembly)
+    {
+        if (assembly is null) throw new ArgumentNullException(nameof(assembly));
+
+        var count = 0;
+
+        foreach (var route in routes)
+        {
+            if (route.Value.GetType().Assembly == assembly && routes.TryRemove(route.Key, out _))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
     
     public int RemoveRoutes(Type routeType)
     {
-        if (routeType is null)
-            throw new ArgumentNullException(nameof(routeType));
-        
-        if (!routeType.InheritsType<HttpRoute>())
-            throw new Exception($"Route type {routeType.FullName} is not a HttpRoute");
+        if (routeType is null) throw new ArgumentNullException(nameof(routeType));
+        if (!routeType.InheritsType<HttpRoute>()) throw new Exception($"Route type {routeType.FullName} is not a HttpRoute");
 
         var count = 0;
 
@@ -158,14 +166,9 @@ public class HttpServer : IDisposable
 
     public bool RemoveRoute(HttpRoute route)
     {
-        if (route is null)
-            throw new ArgumentNullException(nameof(route));
-        
-        if (string.IsNullOrWhiteSpace(route.Url))
-            throw new ArgumentNullException(nameof(route.Url));
-
-        if (string.IsNullOrWhiteSpace(route.FixedUrl))
-            throw new Exception($"Attempted to remove an unregistered route");
+        if (route is null) throw new ArgumentNullException(nameof(route));
+        if (string.IsNullOrWhiteSpace(route.Url)) throw new ArgumentNullException(nameof(route.Url));
+        if (string.IsNullOrWhiteSpace(route.FixedUrl)) throw new Exception($"Attempted to remove an unregistered route");
 
         var removed = false;
         
@@ -184,35 +187,18 @@ public class HttpServer : IDisposable
 
     public int AddRoute(Type routeType)
     {
-        if (routeType is null)
-            throw new ArgumentNullException(nameof(routeType));
-        
-        if (!routeType.InheritsType<HttpRoute>())
-            throw new Exception($"Route type {routeType.FullName} is not a HttpRoute");
+        if (routeType is null) throw new ArgumentNullException(nameof(routeType));
+        if (!routeType.InheritsType<HttpRoute>()) throw new Exception($"Route type {routeType.FullName} is not a HttpRoute");
         
         return AddRoute(Activator.CreateInstance(routeType) as HttpRoute);
     }
 
     public int AddRoute(HttpRoute route)
     {
-        if (route is null)
-            throw new ArgumentNullException(nameof(route));
-        
-        if (string.IsNullOrWhiteSpace(route.Url))
-            throw new ArgumentNullException(nameof(route.Url));
+        if (route is null) throw new ArgumentNullException(nameof(route));
+        if (string.IsNullOrWhiteSpace(route.Url)) throw new ArgumentNullException(nameof(route.Url));
 
-        if (string.IsNullOrWhiteSpace(route.FixedUrl))
-        {
-            var url = route.Url;
-
-            if (url.StartsWith("/"))
-                url = url.Substring(1, url.Length - 1);
-
-            if (url.EndsWith("/"))
-                url = url.Substring(0, url.Length - 1);
-
-            route.FixedUrl = url;
-        }
+        route.FixedUrl = route.Url;
 
         foreach (var other in routes)
         {
@@ -226,6 +212,26 @@ public class HttpServer : IDisposable
         return id;
     }
 
+    public void AddRoutes(Assembly assembly)
+    {
+        if (assembly is null) throw new ArgumentNullException(nameof(assembly));
+
+        foreach (var type in assembly.GetTypes())
+        {
+            if (!type.InheritsType<HttpRoute>()) continue;
+            if (Activator.CreateInstance(type) is not HttpRoute route) continue;
+
+            try
+            {
+                AddRoute(route);
+            }
+            catch (Exception ex)
+            {
+                CommonLog.Error("Http Server", $"Could not register assembly HTTP route '{type.FullName}':\n{ex}");
+            }
+        }
+    }
+
     private async Task UpdateAsync()
     {
         while (IsListening)
@@ -234,8 +240,6 @@ public class HttpServer : IDisposable
             
             try
             {
-                CommonLog.Debug("Http Server", $"Waiting for a request ...");
-                
                 context = await listener.GetContextAsync();
 
                 if (context is null)
@@ -273,8 +277,6 @@ public class HttpServer : IDisposable
                             parameters.TryAdd(arg, string.Empty);
                     }
                 }
-                
-                CommonLog.Debug("Http Server", $"Parsed URL: {parsedUrl}");
 
                 HttpRoute targetRoute = null;
 
@@ -288,7 +290,7 @@ public class HttpServer : IDisposable
                     if (route.Value.FixedUrl.Contains("/{") && route.Value.FixedUrl.Contains("}"))
                     {
                         route.Value.FixedUrl.TrySplit('/', true, null, out var routeParts);
-                        parsedUrl.TrySplit('/', true, null, out var urlParts);
+                        raw.TrySplit('/', true, null, out var urlParts);
 
                         if (routeParts != null && urlParts != null)
                         {
@@ -320,17 +322,13 @@ public class HttpServer : IDisposable
                     {
                         route.Value.ParseParameters(raw, routeUrl, parameters);
                         
-                        targetRoute = route.Value;
-                        
-                        CommonLog.Debug("Http Server", $"Found route: {route.Value.FixedUrl}");
+                        targetRoute = route.Value; ;
                         break;
                     }
                 }
 
                 if (targetRoute is null)
                 {
-                    CommonLog.Debug("Http Server", $"No route was found");
-                    
                     context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                     context.Response.StatusDescription = "Not Found";
                     
@@ -343,7 +341,7 @@ public class HttpServer : IDisposable
                     continue;
                 }
 
-                var wrapper = await HttpContext.GetAsync(context, this, targetRoute);
+                var wrapper = await HttpContext.GetAsync(context, this, targetRoute, parameters);
 
                 if (wrapper is null)
                 {
@@ -362,8 +360,6 @@ public class HttpServer : IDisposable
                 }
                 
                 EventSyncHandler.Create(new ContextReceivedEvent(this, wrapper));
-                
-                CommonLog.Debug("Http Server", $"Enqueued event");
             }
             catch (Exception ex)
             {
@@ -396,14 +392,9 @@ public class HttpServer : IDisposable
 
     private static void OnEvent(EventSyncBase eventSync)
     {
-        if (eventSync is null)
-            return;
-
-        if (eventSync is not ContextReceivedEvent contextReceivedEvent) 
-            return;
-        
-        if (contextReceivedEvent.Context?.TargetRoute is null)
-            return;
+        if (eventSync is null) return;
+        if (eventSync is not ContextReceivedEvent contextReceivedEvent) return;
+        if (contextReceivedEvent.Context?.TargetRoute is null) return;
 
         contextReceivedEvent.Context.TargetRoute.OnRequest(contextReceivedEvent);
     }

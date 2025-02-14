@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Net.Http.Headers;
 using System.Net;
 using System.IO;
 using System;
@@ -245,13 +244,14 @@ public class HttpContext
         context.Response.Close();
     }
 
-    public static async Task<HttpContext> GetAsync(HttpListenerContext ctx, HttpServer server, HttpRoute route)
+    public static async Task<HttpContext> GetAsync(HttpListenerContext ctx, HttpServer server, HttpRoute route, ConcurrentDictionary<string, string> parameters)
     {
         var context = new HttpContext();
 
         context.context = ctx;
         context.targetRoute = route;
-
+        context.parameters = parameters;
+        
         if (!string.IsNullOrWhiteSpace(server.RealIpHeader) && context.TryGetHeader(server.RealIpHeader, out var realIpValue) 
                                                             && IPAddress.TryParse(realIpValue, out var realIp))
             context.origin = new IPEndPoint(realIp, ctx.Request.RemoteEndPoint?.Port ?? 0);

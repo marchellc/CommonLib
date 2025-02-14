@@ -9,6 +9,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using Newtonsoft.Json;
 
 namespace CommonLib.Http.Client;
 
@@ -39,11 +40,8 @@ public class HttpClient
     public void PostWithMultipart(string url, Action<MultipartContent> multipartBuilder, Action<HttpRequest> callback,
         object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentNullException(nameof(url));
-        
-        if (multipartBuilder is null)
-            throw new ArgumentNullException(nameof(multipartBuilder));
+        if (string.IsNullOrWhiteSpace(url)) throw new ArgumentNullException(nameof(url));
+        if (multipartBuilder is null) throw new ArgumentNullException(nameof(multipartBuilder));
         
         CreateWithPayload(_ =>
         {
@@ -56,45 +54,42 @@ public class HttpClient
 
     public void PostWithStream(string url, Stream payload, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentNullException(nameof(url));
-        
-        if (payload is null)
-            throw new ArgumentNullException(nameof(payload));
+        if (string.IsNullOrWhiteSpace(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
         
         CreateWithPayload(_ => new StreamContent(payload), url, HttpMethod.Post, callback, state, headers);
     }
 
     public void PostWithBytes(string url, byte[] payload, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentNullException(nameof(url));
-        
-        if (payload is null)
-            throw new ArgumentNullException(nameof(payload));
+        if (string.IsNullOrWhiteSpace(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
         
         CreateWithPayload(_ => new ByteArrayContent(payload), url, HttpMethod.Post, callback, state, headers);
     }
 
     public void PostWithText(string url, string payload, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrEmpty(url))
-            throw new ArgumentNullException(nameof(url));
-        
-        if (string.IsNullOrWhiteSpace(payload))
-            throw new ArgumentNullException(nameof(payload));
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
+        if (string.IsNullOrWhiteSpace(payload)) throw new ArgumentNullException(nameof(payload));
         
         CreateWithPayload(_ => new StringContent(payload), url, HttpMethod.Post, callback, state, headers);
     }
-
-    public void GetWithMultipart(string url, Action<MultipartContent> multipartBuilder, Action<HttpRequest> callback,
-        object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
+    
+    public void PostWithJson(string url, object payload, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentNullException(nameof(url));
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
         
-        if (multipartBuilder is null)
-            throw new ArgumentNullException(nameof(multipartBuilder));
+        CreateWithPayload(_ => CreateContentWithHeader(() => new StringContent(JsonConvert.SerializeObject(payload)), "application/json"), 
+            url, HttpMethod.Post, callback, state, headers);
+    }
+
+    public void GetWithMultipart(string url, Action<MultipartContent> multipartBuilder, Action<HttpRequest> callback, object state = null, 
+        IEnumerable<KeyValuePair<string, string>> headers = null)
+    {
+        if (string.IsNullOrWhiteSpace(url)) throw new ArgumentNullException(nameof(url));
+        if (multipartBuilder is null) throw new ArgumentNullException(nameof(multipartBuilder));
         
         CreateWithPayload(_ =>
         {
@@ -107,41 +102,80 @@ public class HttpClient
 
     public void GetWithStream(string url, Stream payload, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentNullException(nameof(url));
-        
-        if (payload is null)
-            throw new ArgumentNullException(nameof(payload));
+        if (string.IsNullOrWhiteSpace(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
         
         CreateWithPayload(_ => new StreamContent(payload), url, HttpMethod.Get, callback, state, headers);
     }
 
     public void GetWithBytes(string url, byte[] payload, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentNullException(nameof(url));
-        
-        if (payload is null)
-            throw new ArgumentNullException(nameof(payload));
+        if (string.IsNullOrWhiteSpace(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
         
         CreateWithPayload(_ => new ByteArrayContent(payload), url, HttpMethod.Get, callback, state, headers);
     }
 
     public void GetWithText(string url, string payload, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrEmpty(url))
-            throw new ArgumentNullException(nameof(url));
-        
-        if (string.IsNullOrWhiteSpace(payload))
-            throw new ArgumentNullException(nameof(payload));
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
+        if (string.IsNullOrWhiteSpace(payload)) throw new ArgumentNullException(nameof(payload));
         
         CreateWithPayload(_ => new StringContent(payload), url, HttpMethod.Get, callback, state, headers);
+    }
+    
+    public void GetWithJson(string url, object payload, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
+    {
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
+        
+        CreateWithPayload(_ => CreateContentWithHeader(() => new StringContent(JsonConvert.SerializeObject(payload)), "application/json"), 
+            url, HttpMethod.Get, callback, state, headers);
+    }
+    
+    public void WithStream(string url, Stream payload, HttpMethod method, Action<HttpRequest> callback, object state = null, 
+        IEnumerable<KeyValuePair<string, string>> headers = null)
+    {
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
+        if (method is null) throw new ArgumentNullException(nameof(method));
+        
+        CreateWithPayload(_ => new StreamContent(payload), url, method, callback, state, headers);
+    }
+    
+    public void WithBytes(string url, byte[] payload, HttpMethod method, Action<HttpRequest> callback, object state = null, 
+        IEnumerable<KeyValuePair<string, string>> headers = null)
+    {
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
+        if (method is null) throw new ArgumentNullException(nameof(method));
+        
+        CreateWithPayload(_ => new ByteArrayContent(payload), url, method, callback, state, headers);
+    }
+    
+    public void WithText(string url, string payload, HttpMethod method, Action<HttpRequest> callback, object state = null,
+        IEnumerable<KeyValuePair<string, string>> headers = null)
+    {
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
+        if (method is null) throw new ArgumentNullException(nameof(method));
+        
+        CreateWithPayload(_ => new StringContent(payload), url, method, callback, state, headers);
+    }
+    
+    public void WithJson(string url, object payload, HttpMethod method, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
+    {
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
+        if (payload is null) throw new ArgumentNullException(nameof(payload));
+        if (method is null) throw new ArgumentNullException(nameof(method));
+        
+        CreateWithPayload(_ => CreateContentWithHeader(() => new StringContent(JsonConvert.SerializeObject(payload)), "application/json"), 
+            url, method, callback, state, headers);
     }
 
     public void Get(string url, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrEmpty(url))
-            throw new ArgumentNullException(nameof(url));
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
         
         Create(new HttpRequestMessage(HttpMethod.Get, url), callback, state, headers);
     }
@@ -149,14 +183,9 @@ public class HttpClient
     public void CreateWithPayload(Func<HttpRequestMessage, HttpContent> contentFactory, string url,
         HttpMethod method, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (string.IsNullOrEmpty(url))
-            throw new ArgumentNullException(nameof(url));
-        
-        if (contentFactory is null)
-            throw new ArgumentNullException(nameof(contentFactory));
-        
-        if (method is null)
-            throw new ArgumentNullException(nameof(method));
+        if (string.IsNullOrEmpty(url)) throw new ArgumentNullException(nameof(url));
+        if (contentFactory is null) throw new ArgumentNullException(nameof(contentFactory));
+        if (method is null) throw new ArgumentNullException(nameof(method));
         
         var message = new HttpRequestMessage(method, url);
         var content = contentFactory(message);
@@ -169,8 +198,7 @@ public class HttpClient
 
     public void Create(HttpRequestMessage message, Action<HttpRequest> callback, object state = null, IEnumerable<KeyValuePair<string, string>> headers = null)
     {
-        if (message is null)
-            throw new ArgumentNullException(nameof(message));
+        if (message is null) throw new ArgumentNullException(nameof(message));
         
         var context = HttpContext.Get(message);
 
@@ -256,12 +284,26 @@ public class HttpClient
 
     private static void OnEvent(EventSyncBase eventSync)
     {
-        if (eventSync is null)
-            return;
+        if (eventSync is null) return;
 
         if (eventSync is ResponseReceivedEvent responseReceivedEvent)
         {
             responseReceivedEvent.Request?.Callback?.Invoke(responseReceivedEvent.Request);
         }
+    }
+
+    private static HttpContent CreateContentWithHeader(Func<HttpContent> builder, string header, long? length = null)
+    {
+        if (builder is null) throw new ArgumentNullException(nameof(builder));
+        if (string.IsNullOrWhiteSpace(header)) throw new ArgumentNullException(nameof(header));
+        
+        var content = builder();
+
+        content.Headers.ContentType = new(header);
+        
+        if (length.HasValue)
+            content.Headers.ContentLength = length.Value;
+        
+        return content;
     }
 }
