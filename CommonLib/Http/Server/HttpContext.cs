@@ -225,6 +225,81 @@ public class HttpContext
         context.Response.Close();
     }
 
+    public void RespondFile(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            throw new ArgumentNullException(nameof(filePath));
+        
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException("File not found", filePath);
+
+        var name = Path.GetFileName(filePath);
+        
+        using (var fs = File.OpenRead(filePath))
+        using (var bw = new BinaryWriter(context.Response.OutputStream))
+        {
+            context.Response.AddHeader("Content-disposition", "attachment; filename=" + name);
+            
+            context.Response.ContentLength64 = fs.Length;
+            context.Response.ContentType = "application/octet-stream";
+            
+            context.Response.SendChunked = false;
+
+            var read = 0;
+            var buffer = new byte[64 * 1024];
+            
+            while ((read = fs.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                bw.Write(buffer, 0, read);
+                bw.Flush();
+            }
+
+            bw.Close();
+        }
+        
+        context.Response.StatusCode = (int)HttpStatusCode.OK;
+        context.Response.StatusDescription = "OK";
+        
+        context.Response.Close();
+    }
+
+    public void RespondStream(Stream stream)
+    {
+        if (stream is null)
+            throw new ArgumentNullException(nameof(stream));
+        
+        context.Response.ContentType = "application/octet-stream";
+        
+        context.Response.StatusCode = (int)HttpStatusCode.OK;
+        context.Response.StatusDescription = "OK";
+        
+        stream.CopyTo(context.Response.OutputStream);
+        
+        context.Response.Close();
+    }
+    
+    public async Task RespondStreamAsync(Stream stream)
+    {
+        if (stream is null)
+            throw new ArgumentNullException(nameof(stream));
+        
+        context.Response.StatusCode = (int)HttpStatusCode.OK;
+        context.Response.StatusDescription = "OK";
+        
+        await stream.CopyToAsync(context.Response.OutputStream);
+        
+        context.Response.Close();
+    }
+
+    public void RespondRedirect(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            throw new ArgumentNullException(nameof(url));
+        
+        context.Response.Redirect(url);
+        context.Response.Close();
+    }
+
     public void RespondError(string message, HttpStatusCode errorCode = HttpStatusCode.InternalServerError)
     {
         if (string.IsNullOrWhiteSpace(message))

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using CommonLib.EventSync;
 using CommonLib.Extensions;
@@ -280,9 +281,16 @@ public class HttpServer : IDisposable
 
                 HttpRoute targetRoute = null;
 
+                var method = context.Request.HttpMethod;
+
+                if (parameters.TryGetValue("methodOverride", out var methodOverride))
+                    method = methodOverride.ToUpper();
+
+                parameters.TryRemove("methodOverride", out _);
+
                 foreach (var route in Routes)
                 {
-                    if (route.Value.Methods is { Length: > 0 } && route.Value.Methods.All(x => !string.Equals(x.Method, context.Request.HttpMethod, StringComparison.CurrentCultureIgnoreCase)))
+                    if (route.Value.Methods is { Length: > 0 } && route.Value.Methods.All(x => !string.Equals(x.Method, method, StringComparison.CurrentCultureIgnoreCase)))
                         continue;
                     
                     var routeUrl = parsedUrl;
@@ -317,12 +325,17 @@ public class HttpServer : IDisposable
                             }
                         }
                     }
+
+                    var isAllowed = false;
                     
-                    if (route.Value.FixedUrl == routeUrl || route.Value.IsMatch(raw, routeUrl))
+                    if (route.Value.FixedUrl == routeUrl || route.Value.IsMatch(raw, routeUrl, out isAllowed))
                     {
+                        if (!isAllowed)
+                            continue;
+                        
                         route.Value.ParseParameters(raw, routeUrl, parameters);
                         
-                        targetRoute = route.Value; ;
+                        targetRoute = route.Value; 
                         break;
                     }
                 }

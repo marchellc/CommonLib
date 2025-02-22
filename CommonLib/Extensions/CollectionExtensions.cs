@@ -1,8 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Collections;
-using System.Threading.Tasks;
-using System.Collections.Generic;
+﻿using System.Collections;
 
 namespace CommonLib.Extensions
 {
@@ -12,36 +8,6 @@ namespace CommonLib.Extensions
         
         public static IEnumerable<T> WhereInstance<T>(this IEnumerable<object> objects, Func<T, bool> predicate)
             => objects.Where(value => value != null && value is T && (predicate is null || predicate((T)value))).Select(value => (T)value);
-
-        public static async Task<List<T>> ToListAsync<T>(this IAsyncEnumerable<T> values)
-        {
-            var list = new List<T>();
-
-            await foreach (var tValue in values)
-                list.Add(tValue);
-
-            return list;
-        }
-
-        public static async Task<T[]> ToArrayAsync<T>(this IAsyncEnumerable<T> values)
-        {
-            var list = new List<T>();
-
-            await foreach (var tValue in values)
-                list.Add(tValue);
-
-            return list.ToArray();
-        }
-
-        public static async Task<HashSet<T>> ToHashSetAsync<T>(this IAsyncEnumerable<T> values)
-        {
-            var set = new HashSet<T>();
-
-            await foreach (var tValue in values)
-                set.Add(tValue);
-
-            return set;
-        }
 
         public static void Shuffle<T>(this ICollection<T> source)
         {
